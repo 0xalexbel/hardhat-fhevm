@@ -1,5 +1,7 @@
 # hardhat-fhevm
 
+![test workflow](https://github.com/0xalexbel/hardhat-fhevm/actions/workflows/npm-test.yml/badge.svg)
+
 A hardhat plugin to develop and test solidity programs using Zama's Fhevm.
 
 ## Installation
