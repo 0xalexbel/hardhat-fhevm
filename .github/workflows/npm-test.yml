@@ -33,4 +33,4 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm test -- --grep Integration
+      - run: npm test -- --grep mock
