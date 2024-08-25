@@ -24,3 +24,12 @@ import "hardhat-fhevm";
 
 - [fhevm: 0.5.8](https://github.com/zama-ai/fhevm)
 - [fhevmjs: 0.5.2](https://github.com/zama-ai/fhevmjs)
+
+## Tasks
+
+This plugin adds the following tasks:
+- fhevm start : to start a local dev node
+- fhevm stop : to stop a local dev node
+- fhevm restart : to restart a local dev node
+
+This plugin overrides the standard `test` task by automatically setting up a fhevm environment.
