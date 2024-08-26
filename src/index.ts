@@ -76,8 +76,6 @@ import {
   writeContractAddress,
   writeImportSolFile,
   writePrecompileSolFile,
-  AllFhevmContractNames,
-  getFhevmContractInstallNeeded,
   getFhevmContractAddressInfo,
   writeLibGateway,
 } from "./common/contracts";
