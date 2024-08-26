@@ -108,7 +108,7 @@ describe("local tasks tests", function () {
     assert(!(await this.hre.fhevm.dockerServices().isFhevmRunning()), "Fhevm docker services are still running!");
   });
 
-  it("Local12: TASK_FHEVM_TEST", async function () {
+  it("Local12: TASK_TEST", async function () {
     //assert(!(await this.hre.fhevm.dockerServices().isFhevmRunning()), "Fhevm docker services should not be running!");
     await this.hre.run(TASK_TEST);
   });
