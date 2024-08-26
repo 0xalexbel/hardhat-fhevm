@@ -1,6 +1,6 @@
 # hardhat-fhevm
 
-![test workflow](https://github.com/0xalexbel/hardhat-fhevm/actions/workflows/npm-test.yml/badge.svg)
+![test workflow](https://github.com/0xalexbel/hardhat-fhevm/actions/workflows/ci.yml/badge.svg)
 
 A hardhat plugin to develop and test solidity programs using Zama's Fhevm.
 
@@ -29,9 +29,48 @@ import "hardhat-fhevm";
 
 ## Tasks
 
-This plugin adds the following tasks:
-- fhevm start : to start a local dev node
-- fhevm stop : to stop a local dev node
-- fhevm restart : to restart a local dev node
+to start a local fhevm node on port 8545:
 
-This plugin overrides the standard `test` task by automatically setting up a fhevm environment.
+```bash
+npx hardhat fhevm start
+```
+
+to stop the node:
+
+```bash
+npx hardhat fhevm stop
+```
+
+to restart the node:
+
+```bash
+npx hardhat fhevm restart
+```
+
+to test your contracts in TFHE mock mode:
+
+```bash
+npx hardhat test
+```
+
+to test your contracts in using the local fhevm node:
+
+```bash
+npx hardhat --network fhevm test
+```
+
+to compile your contracts in TFHE mock mode:
+
+```bash
+npx hardhat compile
+```
+to compile your contracts in TFHE local mode:
+
+```bash
+npx hardhat --network fhevm compile
+```
+
+## Environment extensions
+
+This plugin extends the Hardhat Runtime Environment by adding an `fhevm` field whose type is
+`HardhatFhevmRuntimeEnvironment`.
