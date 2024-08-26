@@ -45,6 +45,8 @@ import {
   SCOPE_FHEVM_TASK_STOP,
   SCOPE_FHEVM_TASK_RESTART,
   TASK_FHEVM_WRITE_ALL_CONTRACTS,
+  TASK_FHEVM_DEPLOY_EXTRA,
+  SCOPE_FHEVM_TASK_CLEAN,
 } from "./task-names";
 
 import { logTrace, HardhatFhevmError, logBox, logDim } from "./common/error";
@@ -75,9 +77,11 @@ import {
   toFhevmContractName,
   writeContractAddress,
   writeImportSolFile,
-  writePrecompileSolFile,
   getFhevmContractAddressInfo,
   writeLibGateway,
+  ____deployAndRunGatewayFirstRequestBugAvoider,
+  ____writeGatewayFirstRequestBugAvoider,
+  writeMockedPrecompile,
 } from "./common/contracts";
 import assert from "assert";
 import { HardhatFhevmRuntimeEnvironment, FhevmRuntimeEnvironmentType } from "./common/HardhatFhevmRuntimeEnvironment";
@@ -123,7 +127,7 @@ extendConfig((config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) =>
 
   const contractsAbsolutePath = path.join(config.paths.root, "node_modules");
 
-  const hhMock: boolean = userHHMock === true;
+  const hhMock: boolean = !(userHHMock === false);
 
   let mnemonic: string = HARDHAT_FHEVM_DEFAULT_MNEMONIC;
 
@@ -153,8 +157,18 @@ extendEnvironment((hre) => {
   hre.fhevm = lazyObject(() => {
     if (HardhatFhevmRuntimeEnvironment.mockRequested(hre)) {
       return new MockFhevmRuntimeEnvironment(hre);
-    } else {
+    } else if (HardhatFhevmRuntimeEnvironment.localRequested(hre)) {
       return new LocalFhevmRuntimeEnvironment(hre);
+    } else {
+      if (hre.network.name === "hardhat") {
+        throw new HardhatFhevmError(
+          "Looks like 'hardhat-fhevm' has been disabled in the hardhat config. Set the 'config.networks.hardhat.mockFhevm' property to 'true' to enable fhevm on the 'hardhat' network.",
+        );
+      } else {
+        throw new HardhatFhevmError(
+          `You are interacting with the hardhat-fhevm's custom field named 'fhevm' in the Hardhat Runtime Environment, but the network named '${hre.network.name}' does not support Fhevm. Only the 'hardhat' and the 'fhevm' networks support fhevm.`,
+        );
+      }
     }
   });
 });
@@ -577,6 +591,9 @@ subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
 
   const deployedContracts = await hre.run(TASK_FHEVM_DEPLOY);
 
+  // Deploy any extra contract
+  await hre.run(TASK_FHEVM_DEPLOY_EXTRA);
+
   logStartReport(deployedContracts, hre);
 
   if (cleanOrBuild.build) {
@@ -588,6 +605,23 @@ subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
 subtask(TASK_FHEVM_STOP, async (_taskArgs, hre) => {
   await hre.run(TASK_FHEVM_DOCKER_DOWN);
   await hre.run(TASK_FHEVM_REMOVE_KEYS);
+});
+
+subtask(TASK_FHEVM_DEPLOY_EXTRA, async (_taskArgs, hre) => {
+  logTrace("compile gateway bug fix...");
+
+  const dir = ____writeGatewayFirstRequestBugAvoider(hre);
+  await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
+
+  /**
+   * First decryption request bug
+   * ============================
+   * the function '____deployAndRunGatewayFirstRequestBugAvoider' is temporary
+   * should be removed when the gateway bug will be fixed
+   */
+  logTrace("deploy+run gateway bug fix...");
+
+  await ____deployAndRunGatewayFirstRequestBugAvoider(hre);
 });
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -615,7 +649,7 @@ subtask(TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE, async (_taskArgs, hre) => {
   logTrace("compile fhevm mock coprocessor contract");
 
   // Compile MockedPrecompile.sol
-  const dir = writePrecompileSolFile(hre);
+  const dir = writeMockedPrecompile(hre);
   await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
 
   // Deploy MockedPrecompile.sol
@@ -657,6 +691,7 @@ function logStartReport(deployedContracts: Record<string, string>, hre: HardhatR
 // - npx hardhat fhevm start
 // - npx hardhat fhevm stop
 // - npx hardhat fhevm restart
+// - npx hardhat fhevm clean
 ////////////////////////////////////////////////////////////////////////////////
 
 const fhevmScope = scope(SCOPE_FHEVM, "Manage a fhevm node");
@@ -686,6 +721,12 @@ fhevmScope.task(SCOPE_FHEVM_TASK_RESTART, async (_taskArgs, hre) => {
   hre.fhevm.__exitForceLocal();
 });
 
+fhevmScope.task(SCOPE_FHEVM_TASK_CLEAN, async (_taskArgs, hre) => {
+  await hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_STOP });
+  logTrace(`remove directory: ${hre.config.paths.fhevm}`);
+  await rimraf(hre.config.paths.fhevm);
+});
+
 ////////////////////////////////////////////////////////////////////////////////
 // Compile
 ////////////////////////////////////////////////////////////////////////////////
@@ -709,7 +750,7 @@ subtask(TASK_TEST_SETUP_TEST_ENVIRONMENT, async (_taskArgs, hre, runSuper) => {
 });
 
 task(TASK_TEST, async (taskArgs, hre, runSuper) => {
-  if (!hre.fhevm.isUserRequested()) {
+  if (!HardhatFhevmRuntimeEnvironment.isUserRequested(hre)) {
     return runSuper();
   }
 

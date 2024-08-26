@@ -141,12 +141,18 @@ export abstract class HardhatFhevmRuntimeEnvironment {
   }
 
   private gatewayRelayerPrivateKey() {
+    if (this.isMock()) {
+      // no docker service in mock mode
+      // return default.
+      return this.hre.config.networks.fhevm.accounts.GatewayRelayerPrivateKey;
+    }
+
     try {
-      const key = this._dockerServices.gatewayServiceRelayerAddress();
+      const key = this._dockerServices.gatewayServiceRelayerPrivateKey();
       assert(key === this.hre.config.networks.fhevm.accounts.GatewayRelayerPrivateKey);
       return key;
-    } catch {
-      throw new HardhatFhevmError(`Unable to parse gateway relayer private key`);
+    } catch (err) {
+      throw new HardhatFhevmError(`Unable to parse gateway relayer private key ${err}`);
     }
   }
 

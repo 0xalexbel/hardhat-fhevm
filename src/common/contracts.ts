@@ -48,6 +48,10 @@ export function getUserPackageNodeModulesDir(config: HardhatConfig): string {
   return config.paths.fhevmContracts;
 }
 
+export function getPrecompileDir(config: HardhatConfig) {
+  return path.join(config.paths.fhevm, "contracts/precompile");
+}
+
 // usually: /path/to/user_package/node_modules/fhevm
 export function getFhevmContractsDirectory(contractsRootDir: string): string {
   return path.join(contractsRootDir, FHEVM_SOL_IMPORT_PATH);
@@ -311,7 +315,6 @@ async function getContractFactory(contractName: FhevmContractName, hre: HardhatR
   const params = getFhevmContractParams(contractName, getUserPackageNodeModulesDir(hre.config));
   const artifact = await hre.artifacts.readArtifact(params.fullyQualifiedName);
   return hre.ethers.getContractFactoryFromArtifact(artifact, getWalletAt(0, hre.config, hre.fhevm.provider()));
-  //  const factory = await hre.ethers.getContractFactory(params.fullyQualifiedName);
 }
 
 // Only Mock
@@ -492,7 +495,7 @@ import "fhevm/gateway/GatewayCaller.sol";
   }
 }
 
-export function writePrecompileSolFile(hre: HardhatRuntimeEnvironment) {
+export function writeMockedPrecompile(hre: HardhatRuntimeEnvironment) {
   // Write solidity file
   const solidityTemplate = `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
@@ -501,12 +504,57 @@ import "fhevm/lib/MockedPrecompile.sol";
 \n`;
 
   try {
-    const dir = path.join(hre.config.paths.fhevm, "contracts/precompile");
+    const dir = getPrecompileDir(hre.config);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "imports.sol"), solidityTemplate, { encoding: "utf8", flag: "w" });
     return dir;
   } catch (err) {
     throw new HardhatFhevmError(`Failed to generate 'imports.sol' file: ${err}`);
+  }
+}
+
+export function ____writeGatewayFirstRequestBugAvoider(hre: HardhatRuntimeEnvironment) {
+  const solidityTemplate = `// SPDX-License-Identifier: BSD-3-Clause-Clear
+
+pragma solidity ^0.8.24;
+
+import "fhevm/lib/TFHE.sol";
+import "fhevm/gateway/GatewayCaller.sol";
+
+contract GatewayFirstRequestBugAvoider is GatewayCaller {
+    euint8 xUint8;
+
+    uint8 public yUint8;
+
+    uint256 public latestRequestID;
+
+    constructor() {
+        xUint8 = TFHE.asEuint8(42);
+        TFHE.allow(xUint8, address(this));
+    }
+
+    function requestUint8() public {
+        uint256[] memory cts = new uint256[](1);
+        cts[0] = Gateway.toUint256(xUint8);
+        Gateway.requestDecryption(cts, this.callbackUint8.selector, 0, block.timestamp + 100, false);
+    }
+
+    function callbackUint8(uint256, uint8 decryptedInput) public onlyGateway returns (uint8) {
+        yUint8 = decryptedInput;
+        return decryptedInput;
+    }
+}\n`;
+
+  try {
+    const dir = getPrecompileDir(hre.config);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "GatewayFirstRequestBugAvoider.sol"), solidityTemplate, {
+      encoding: "utf8",
+      flag: "w",
+    });
+    return dir;
+  } catch (err) {
+    throw new HardhatFhevmError(`Failed to generate 'GatewayFirstRequestBugAvoider.sol' file: ${err}`);
   }
 }
 
@@ -632,4 +680,44 @@ export async function deployFhevmContract(
   logDim(`${contractName.padEnd(15, " ")} deployed at ${address} (deployer=${deployer.address})`);
 
   return address;
+}
+
+export async function deployContract(
+  fullyQualifiedName: string,
+  /* eslint-disable  @typescript-eslint/no-explicit-any */
+  args: any[],
+  deployer: ethers.HDNodeWallet,
+  hre: HardhatRuntimeEnvironment,
+) {
+  try {
+    const artifact = await hre.artifacts.readArtifact(fullyQualifiedName);
+    const factory = await hre.ethers.getContractFactoryFromArtifact(artifact, deployer);
+
+    const contract = await factory.connect(deployer).deploy(...args);
+    await contract.waitForDeployment();
+    return contract;
+  } catch (err) {
+    throw new HardhatFhevmError(`Deploy contract ${fullyQualifiedName} failed (signer=${deployer.address}), ${err}`);
+  }
+}
+
+export async function ____deployAndRunGatewayFirstRequestBugAvoider(hre: HardhatRuntimeEnvironment) {
+  const deployer = getWalletAt(hre.config.networks.fhevm.accounts.fhevmOwner, hre.config, hre.fhevm.provider());
+
+  const contract = await deployContract("GatewayFirstRequestBugAvoider", [], deployer, hre);
+
+  const address = await contract.getAddress();
+  const expectedAddr = hre.ethers.getCreateAddress({
+    from: deployer.address,
+    nonce: 3,
+  });
+
+  if (address !== expectedAddr) {
+    throw new HardhatFhevmError("Unexpected GatewayFirstRequestBugAvoider contract address (wrong nonce ??)");
+  }
+
+  /* eslint-disable @typescript-eslint/ban-ts-comment */
+  //@ts-ignore
+  const tx = await contract.connect(deployer).requestUint8({ gasLimit: 5_000_000 });
+  await tx.wait();
 }

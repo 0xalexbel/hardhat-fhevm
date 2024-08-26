@@ -102,11 +102,11 @@ export class DockerServices {
     }
   }
 
-  gatewayServiceRelayerAddress() {
+  gatewayServiceRelayerPrivateKey() {
     try {
       return this.gatewayServiceEnvs()["GATEWAY__ETHEREUM__RELAYER_KEY"]!;
     } catch {
-      throw new HardhatFhevmError(`Unable to parse gateway service relayer address environment variables`);
+      throw new HardhatFhevmError(`Unable to parse gateway service relayer private key environment variables`);
     }
   }
 

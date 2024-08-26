@@ -44,8 +44,6 @@ export abstract class ResultCallbackProcessor {
   private eventResultCallbackInterface: ethers.Interface;
   private eventEventDecryptionInterface: ethers.Interface;
 
-  // private _____completedQueue: RequestIDQueue<ResultCallbackEvent>;
-  // private _____pendingQueue: RequestIDQueue<EventDecryptionEvent>;
   protected _requestIDDB: RequestIDDB;
 
   protected _nextBlockNumberToPoll: number | undefined;
@@ -63,8 +61,6 @@ export abstract class ResultCallbackProcessor {
       "event EventDecryption(uint256 indexed requestID, uint256[] cts, address contractCaller, bytes4 callbackSelector, uint256 msgValue, uint256 maxTimestamp, bool passSignaturesToCaller)",
     ]);
 
-    // this._____completedQueue = new RequestIDQueue<ResultCallbackEvent>();
-    // this._____pendingQueue = new RequestIDQueue<EventDecryptionEvent>();
     this._requestIDDB = new RequestIDDB();
   }
 
@@ -75,58 +71,6 @@ export abstract class ResultCallbackProcessor {
     this._nextBlockNumberToPoll = await this.getBlockNumber();
 
     await this._traceGatewayEvents();
-  }
-
-  // protected countPending_v1() {
-  //   // the pending queue cannot contain less ids than the completed queue
-  //   assert(this._pendingQueue.ids.size >= this._completedQueue.ids.size);
-
-  //   if (this._pendingQueue.max_id === this._completedQueue.max_id) {
-  //     assert(
-  //       this._pendingQueue.ids.size === this._completedQueue.ids.size,
-  //       `max_id=${this._pendingQueue.max_id} pending.size=${this._pendingQueue.ids.size} completed.size=${this._completedQueue.ids.size}`,
-  //     );
-  //     return BigInt(0);
-  //   }
-
-  //   if (this._pendingQueue.max_id === undefined) {
-  //     assert(this._completedQueue.max_id === undefined);
-  //     assert(this._pendingQueue.ids.size === this._completedQueue.ids.size);
-  //     return BigInt(0);
-  //   }
-
-  //   if (this._completedQueue.max_id === undefined) {
-  //     // nothing is completed
-  //     // the number of pending requests is equal to the size of the pending queue
-  //     return this._pendingQueue.length();
-  //   }
-
-  //   const count = this._pendingQueue.max_id - this._completedQueue.max_id;
-  //   assert(count >= BigInt(0));
-
-  //   return count;
-  // }
-
-  // protected getCurrentPendingRange() {
-  //   const n = this.countPending();
-  //   if (n === BigInt(0)) {
-  //     return undefined;
-  //   }
-  //   const to = this._pendingQueue.max_id!;
-  //   const from =
-  //     this._completedQueue.max_id === undefined ? this._pendingQueue.min_id! : this._completedQueue.max_id + BigInt(1);
-  //   assert(from <= to);
-  //   assert(to - from + BigInt(1) === n);
-
-  //   const range = [];
-  //   for (let i = from; i <= to; ++i) {
-  //     range.push(i);
-  //   }
-  //   return range;
-  // }
-
-  private getCurrentPendingRange() {
-    return this._requestIDDB.getWaitingForResult();
   }
 
   protected getRequestIDsWithGreaterOrEqualBlockNumber(blockNum: number) {
