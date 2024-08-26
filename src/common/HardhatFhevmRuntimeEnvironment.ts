@@ -2,12 +2,12 @@ import { FhevmInstance } from "fhevmjs/node";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DockerServices } from "./DockerServices";
 import assert from "assert";
-import { HardhatFhevmError } from "./error";
+import { HardhatFhevmError, logTrace } from "./error";
 import { ethers } from "ethers";
 import { LOCAL_FHEVM_NETWORK_NAME } from "../constants";
 import { EIP712 } from "fhevmjs/lib/sdk/keypair";
 import { bigIntToBytes } from "./utils";
-import { getUserPackageNodeModulesDir, readFhevmContractAddress } from "./contracts";
+import { getMnemonicPhrase, getUserPackageNodeModulesDir, readFhevmContractAddress } from "./contracts";
 import { HardhatEthersProvider } from "@nomicfoundation/hardhat-ethers/internal/hardhat-ethers-provider";
 import { ResultCallbackProcessor } from "./ResultCallbackProcessor";
 import { HardhatFhevmDecryption } from "../types";
@@ -77,9 +77,7 @@ export abstract class HardhatFhevmRuntimeEnvironment {
   }
 
   public isUserRequested(): boolean {
-    return (
-      HardhatFhevmRuntimeEnvironment.mockRequested(this.hre) || HardhatFhevmRuntimeEnvironment.localRequested(this.hre)
-    );
+    return HardhatFhevmRuntimeEnvironment.isUserRequested(this.hre);
   }
 
   public isConfliting(): boolean {
@@ -92,6 +90,10 @@ export abstract class HardhatFhevmRuntimeEnvironment {
 
   public isMock(): boolean {
     return this.hre.network.name === "hardhat" && !this._forceUseLocalFhevmNetwork;
+  }
+
+  public static isUserRequested(hre: HardhatRuntimeEnvironment): boolean {
+    return HardhatFhevmRuntimeEnvironment.mockRequested(hre) || HardhatFhevmRuntimeEnvironment.localRequested(hre);
   }
 
   public static mockRequested(hre: HardhatRuntimeEnvironment): boolean {

@@ -3,8 +3,9 @@ import fs from "fs";
 import { Artifact, HardhatConfig, HardhatNetworkHDAccountsConfig, HardhatRuntimeEnvironment } from "hardhat/types";
 import path from "path";
 import { ethers } from "ethers";
-import { HardhatFhevmError, logDim } from "./error";
+import { HardhatFhevmError, logDim, logTrace } from "./error";
 import assert from "assert";
+import { replaceStrings } from "./utils";
 
 export type FhevmContractName = "ACL" | "KMSVerifier" | "TFHEExecutor" | "GatewayContract";
 export const AllFhevmContractNames: FhevmContractName[] = ["ACL", "KMSVerifier", "TFHEExecutor", "GatewayContract"];
@@ -65,6 +66,13 @@ function getFhevmGatewayDir(contractsRootDir: string): string {
 // usually: /path/to/user_package/node_modules/fhevm/gateway/lib
 function getFhevmGatewayLibDir(contractsRootDir: string): string {
   return path.join(contractsRootDir, FHEVM_GATEWAY_LIB_SOL_IMPORT_PATH);
+}
+
+// usually: /path/to/user_package/node_modules/fhevm/gateway/lib/Gateway.sol
+function getLibGatewayDotSolPath(hre: HardhatRuntimeEnvironment) {
+  const rootDir = getUserPackageNodeModulesDir(hre.config);
+  const contractDir = getFhevmGatewayLibDir(rootDir);
+  return path.join(contractDir, "Gateway.sol");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -334,12 +342,40 @@ export function checkArtifacts(hre: HardhatRuntimeEnvironment): boolean {
   }
 }
 
-export async function getFhevmContractBuildInfo(contractName: FhevmContractName, hre: HardhatRuntimeEnvironment) {
+export function getFhevmContractInstallNeeded(
+  contractName: FhevmContractName,
+  hre: HardhatRuntimeEnvironment,
+): boolean {
+  const { currentAddress, nextAddress } = getFhevmContractAddressInfo(contractName, hre);
+  return (
+    currentAddress.length === 0 ||
+    (currentAddress !== nextAddress && currentAddress.length > 0 && nextAddress.length > 0)
+  );
+}
+
+export function getFhevmContractAddressInfo(
+  contractName: FhevmContractName,
+  hre: HardhatRuntimeEnvironment,
+): { currentAddress: string; nextAddress: string } {
   const params = getFhevmContractParams(contractName, getUserPackageNodeModulesDir(hre.config));
   const currentAddress = readFhevmContractAddress(params, getUserPackageNodeModulesDir(hre.config));
-  const deployer = getFhevmContractDeployerSigner(contractName, hre);
-  const nextAddress = computeContractAddress(contractName, await deployer.getAddress(), hre);
+  const deployerAddress = getFhevmContractDeployerSigner(contractName, hre).address;
+  const nextAddress = computeContractAddress(contractName, deployerAddress, hre);
   assert(nextAddress.length > 0, "computeContractAddress failed!");
+
+  return {
+    currentAddress,
+    nextAddress,
+  };
+}
+
+export function getFhevmContractBuildInfo(contractName: FhevmContractName, hre: HardhatRuntimeEnvironment) {
+  const { currentAddress, nextAddress } = getFhevmContractAddressInfo(contractName, hre);
+  const params = getFhevmContractParams(contractName, getUserPackageNodeModulesDir(hre.config));
+  // const currentAddress = readFhevmContractAddress(params, getUserPackageNodeModulesDir(hre.config));
+  // const deployer = getFhevmContractDeployerSigner(contractName, hre);
+  // const nextAddress = computeContractAddress(contractName, deployer.address, hre);
+  // assert(nextAddress.length > 0, "computeContractAddress failed!");
 
   let artifact = null;
   try {
@@ -347,6 +383,7 @@ export async function getFhevmContractBuildInfo(contractName: FhevmContractName,
   } catch {
     artifact = null;
   }
+
   return {
     currentAddress,
     nextAddress,
@@ -356,14 +393,14 @@ export async function getFhevmContractBuildInfo(contractName: FhevmContractName,
   };
 }
 
-export async function cleanAndBuildNeeded(hre: HardhatRuntimeEnvironment): Promise<{ clean: boolean; build: boolean }> {
+export function cleanOrBuildNeeded(hre: HardhatRuntimeEnvironment): { clean: boolean; build: boolean } {
   const names: FhevmContractName[] = ["ACL", "KMSVerifier", "GatewayContract", "TFHEExecutor"];
   const res = {
     clean: false,
     build: false,
   };
   for (let i = 0; i < names.length; ++i) {
-    const info = await getFhevmContractBuildInfo(names[i], hre);
+    const info = getFhevmContractBuildInfo(names[i], hre);
     if (info.clean) {
       res.clean = true;
       res.build = true;
@@ -394,6 +431,42 @@ export function computeContractAddress(
     from: deployerAddress,
     nonce: params.nonce,
   });
+}
+
+/**
+ * returns `true` if "Gateway.sol" has changed
+ */
+export function writeLibGateway(
+  contractAddresses: { ACL: string; KMSVerifier: string; GatewayContract: string },
+  hre: HardhatRuntimeEnvironment,
+): boolean {
+  const p = getLibGatewayDotSolPath(hre);
+
+  try {
+    const content = fs.readFileSync(p, "utf8");
+
+    const hasGatewayContract = content.includes(`GatewayContract(${contractAddresses.GatewayContract})`);
+    const hasACL = content.includes(`ACL(${contractAddresses.ACL})`);
+    const hasKMSVerifier = content.includes(`KMSVerifier(address(${contractAddresses.KMSVerifier}))`);
+
+    if (hasGatewayContract && hasACL && hasKMSVerifier) {
+      return false;
+    }
+
+    const new_content = replaceStrings(content, [
+      ["0xc8c9303Cd7F337fab769686B593B87DC3403E0ce", contractAddresses.GatewayContract],
+      ["0x2Fb4341027eb1d2aD8B5D9708187df8633cAFA92", contractAddresses.ACL],
+      ["0x12B064FB845C1cc05e9493856a1D637a73e944bE", contractAddresses.KMSVerifier],
+    ]);
+
+    fs.writeFileSync(p, new_content, { encoding: "utf8", flag: "w" });
+
+    logTrace(`write fhevm Gateway.sol contract`);
+
+    return true;
+  } catch (error) {
+    throw new HardhatFhevmError(`Write ${p} failed. ${error}`);
+  }
 }
 
 export function writeImportSolFile(hre: HardhatRuntimeEnvironment) {
@@ -445,7 +518,11 @@ export function writeContractAddress(
   if (!deployerAddress) {
     deployerAddress = getFhevmContractDeployerSigner(contractName, hre).address;
   }
+
   const params = getFhevmContractParams(contractName, getUserPackageNodeModulesDir(hre.config));
+
+  logTrace(`write fhevm ${params.contractFilename} contract.`);
+
   const contractAddress = ethers.getCreateAddress({
     from: deployerAddress,
     nonce: params.nonce,
@@ -489,6 +566,11 @@ address constant ${params.solidityVarName} = ${contractAddress};\n`;
     envPath: params.dotenvPath,
     changed: contractAddress !== previousAddress,
   };
+}
+
+export function getMnemonicPhrase(config: HardhatConfig): string {
+  const hdAccounts = getHDAccounts(config);
+  return hdAccounts.mnemonic;
 }
 
 export function getWalletAt(

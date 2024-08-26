@@ -33,4 +33,4 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm test -- --grep mock
+      - run: npm test -- --grep TASK_FHEVM_CREATE_KEYS

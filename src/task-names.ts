@@ -14,6 +14,7 @@ export const TASK_FHEVM_ACCOUNTS_SET_BALANCE = "fhevm:accounts:set_balance";
 export const TASK_FHEVM_ACCOUNTS = "fhevm:accounts";
 export const TASK_FHEVM_DOCKER_UP = "fhevm:docker:up";
 export const TASK_FHEVM_DOCKER_DOWN = "fhevm:docker:down";
+export const TASK_FHEVM_WRITE_ALL_CONTRACTS = "fhevm:contracts:write_all";
 export const TASK_FHEVM_WRITE_CONTRACT = "fhevm:contracts:write";
 export const TASK_FHEVM_VERIFY_CONTRACTS = "fhevm:contracts:verify";
 export const TASK_FHEVM_DEPLOY_GATEWAY_CONTRACT = "fhevm:contracts:gateway:deploy";

@@ -35,7 +35,7 @@ import { TASK_COMPILE, TASK_TEST } from "hardhat/builtin-tasks/task-names";
 describe("local tasks tests", function () {
   useEnvironment("hardhat-local-fhevm-project");
 
-  it("TASK_FHEVM_CREATE_KEYS", async function () {
+  it("Local1: TASK_FHEVM_CREATE_KEYS", async function () {
     assert(!fs.existsSync(this.hre.config.paths.fhevm));
     await this.hre.run(TASK_FHEVM_CREATE_KEYS);
     const keysDir = getInstallKeysDir(this.hre);
@@ -45,7 +45,7 @@ describe("local tasks tests", function () {
     assert(fs.existsSync(getInstallServerKeyFile(this.hre)));
   });
 
-  it("TASK_FHEVM_REMOVE_KEYS", async function () {
+  it("Local2: TASK_FHEVM_REMOVE_KEYS", async function () {
     const keysDir = getInstallKeysDir(this.hre);
     assert(!fs.existsSync(keysDir));
     await this.hre.run(TASK_FHEVM_CREATE_KEYS);
@@ -53,62 +53,62 @@ describe("local tasks tests", function () {
     assert(!fs.existsSync(keysDir), `file ${keysDir} still exists!`);
   });
 
-  it("TASK_FHEVM_WRITE_GATEWAY_CONTRACT", async function () {
-    await this.hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "GatewayContract" });
+  it("Local3: TASK_FHEVM_WRITE_GATEWAY_CONTRACT", async function () {
+    await this.hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "GatewayContract", force: true });
     const params = getGatewayContractParams(getUserPackageNodeModulesDir(this.hre.config));
     assert(fs.existsSync(params.contractAddressPath));
     assert(fs.existsSync(params.dotenvPath));
   });
 
-  it("TASK_FHEVM_WRITE_ACL_CONTRACT", async function () {
-    const res = await this.hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "ACL" });
+  it("Local4: TASK_FHEVM_WRITE_ACL_CONTRACT", async function () {
+    const res = await this.hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "ACL", force: true });
     const params = getACLParams(getUserPackageNodeModulesDir(this.hre.config));
     assert(fs.existsSync(params.contractAddressPath));
     assert(fs.existsSync(params.dotenvPath));
     assert(readACLAddress(getUserPackageNodeModulesDir(this.hre.config)) === res.address);
   });
 
-  it("TASK_FHEVM_WRITE_KMS_VERIFIER_CONTRACT", async function () {
-    const res = await this.hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "KMSVerifier" });
+  it("Local5: TASK_FHEVM_WRITE_KMS_VERIFIER_CONTRACT", async function () {
+    const res = await this.hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "KMSVerifier", force: true });
     const params = getKMSVerifierParams(getUserPackageNodeModulesDir(this.hre.config));
     assert(fs.existsSync(params.contractAddressPath));
     assert(fs.existsSync(params.dotenvPath));
     assert(readKMSVerifierAddress(getUserPackageNodeModulesDir(this.hre.config)) === res.address);
   });
 
-  it("TASK_FHEVM_WRITE_TFHE_EXECUTOR_CONTRACT", async function () {
-    const res = await this.hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "TFHEExecutor" });
+  it("Local6: TASK_FHEVM_WRITE_TFHE_EXECUTOR_CONTRACT", async function () {
+    const res = await this.hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "TFHEExecutor", force: true });
     const params = getTFHEExecutorParams(getUserPackageNodeModulesDir(this.hre.config));
     assert(fs.existsSync(params.contractAddressPath));
     assert(fs.existsSync(params.dotenvPath));
     assert(readTFHEExecutorAddress(getUserPackageNodeModulesDir(this.hre.config)) === res.address);
   });
 
-  it("TASK_FHEVM_VERIFY_CONTRACTS", async function () {
+  it("Local7: TASK_FHEVM_VERIFY_CONTRACTS", async function () {
     await this.hre.run(TASK_FHEVM_VERIFY_CONTRACTS);
   });
 
-  it("TASK_FHEVM_COMPILE", async function () {
+  it("Local8: TASK_FHEVM_COMPILE", async function () {
     await this.hre.run(TASK_FHEVM_COMPILE);
   });
 
-  it("TASK_COMPILE_CONTRACTS", async function () {
+  it("Local9: TASK_COMPILE_CONTRACTS", async function () {
     await this.hre.run(TASK_FHEVM_COMPILE);
     await this.hre.run(TASK_COMPILE);
   });
 
-  it("TASK_FHEVM_START", async function () {
+  it("Local10: TASK_FHEVM_START", async function () {
     await this.hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_START });
     assert(await this.hre.fhevm.dockerServices().isFhevmRunning(), "Fhevm docker services are not running!");
   });
 
-  it("TASK_FHEVM_STOP", async function () {
+  it("Local11: TASK_FHEVM_STOP", async function () {
     await this.hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_START });
     await this.hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_STOP });
     assert(!(await this.hre.fhevm.dockerServices().isFhevmRunning()), "Fhevm docker services are still running!");
   });
 
-  it("TASK_FHEVM_TEST", async function () {
+  it("Local12: TASK_FHEVM_TEST", async function () {
     //assert(!(await this.hre.fhevm.dockerServices().isFhevmRunning()), "Fhevm docker services should not be running!");
     await this.hre.run(TASK_TEST);
   });

@@ -30,8 +30,6 @@ export function useEnvironment(fixtureProjectName: string) {
 
 async function installFhevmSolidityContracts(fixtureProjectName: string, hre: HardhatRuntimeEnvironment) {
   const fixtureProjectNodeModules = getUserPackageNodeModulesDir(hre.config);
-  // /Users/alex/src/me/hardhat-fhevm/test/fixture-projects/hardhat-project/node_modules
-  console.log(fixtureProjectNodeModules);
 
   // Better be sure before rimraffing...
   assert(

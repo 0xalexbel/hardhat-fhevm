@@ -44,6 +44,7 @@ import {
   SCOPE_FHEVM_TASK_START,
   SCOPE_FHEVM_TASK_STOP,
   SCOPE_FHEVM_TASK_RESTART,
+  TASK_FHEVM_WRITE_ALL_CONTRACTS,
 } from "./task-names";
 
 import { logTrace, HardhatFhevmError, logBox, logDim } from "./common/error";
@@ -54,7 +55,7 @@ import rimraf from "rimraf";
 import { runCmd, runDocker } from "./run";
 import { ethers } from "ethers";
 import {
-  cleanAndBuildNeeded as cleanOrBuildNeeded,
+  cleanOrBuildNeeded,
   computeContractAddress,
   deployFhevmContract,
   EXT_TFHE_LIBRARY,
@@ -75,6 +76,10 @@ import {
   writeContractAddress,
   writeImportSolFile,
   writePrecompileSolFile,
+  AllFhevmContractNames,
+  getFhevmContractInstallNeeded,
+  getFhevmContractAddressInfo,
+  writeLibGateway,
 } from "./common/contracts";
 import assert from "assert";
 import { HardhatFhevmRuntimeEnvironment, FhevmRuntimeEnvironmentType } from "./common/HardhatFhevmRuntimeEnvironment";
@@ -375,8 +380,27 @@ subtask(TASK_FHEVM_COMPUTE_CONTRACT_ADDRESS)
 
 subtask(TASK_FHEVM_WRITE_CONTRACT)
   .addParam("contractName", undefined, undefined, types.string)
+  .addParam("force", undefined, undefined, types.boolean)
   .setAction(async function (taskArgs, hre) {
     const contractName = toFhevmContractName(taskArgs.contractName);
+
+    let installNeeded = taskArgs.force as boolean;
+
+    if (!installNeeded) {
+      const { currentAddress, nextAddress } = getFhevmContractAddressInfo(contractName, hre);
+
+      installNeeded =
+        currentAddress.length === 0 ||
+        (currentAddress !== nextAddress && currentAddress.length > 0 && nextAddress.length > 0);
+
+      if (!installNeeded) {
+        return {
+          address: currentAddress,
+          changed: false,
+        };
+      }
+    }
+
     return writeContractAddress(contractName, undefined, hre);
   });
 
@@ -394,7 +418,7 @@ subtask(TASK_FHEVM_COMPILE_DIR)
   });
 
 subtask(TASK_FHEVM_CLEAN_IF_NEEDED, async (_taskArgs, hre) => {
-  const cleanOrBuild = await cleanOrBuildNeeded(hre);
+  const cleanOrBuild = cleanOrBuildNeeded(hre);
   if (cleanOrBuild.clean) {
     logTrace("rebuild needed!");
     await hre.run(TASK_CLEAN);
@@ -402,13 +426,40 @@ subtask(TASK_FHEVM_CLEAN_IF_NEEDED, async (_taskArgs, hre) => {
   return cleanOrBuild.clean;
 });
 
+subtask(TASK_FHEVM_WRITE_ALL_CONTRACTS)
+  .addParam("force", undefined, undefined, types.boolean)
+  .setAction(async (taskArgs, hre) => {
+    const force = taskArgs.force as boolean;
+
+    // Write ACL.sol
+    const ACL_res = await hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "ACL", force });
+
+    // Write TFHEExecutor.sol
+    /* const TFHEExecutor_res = */ await hre.run(TASK_FHEVM_WRITE_CONTRACT, {
+      contractName: "TFHEExecutor",
+      force,
+    });
+
+    // Write KMSVerfier.sol
+    const KMSVerifier_res = await hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "KMSVerifier", force });
+
+    // Write GatewayContract.sol
+    const GatewayContract_res = await hre.run(TASK_FHEVM_WRITE_CONTRACT, {
+      contractName: "GatewayContract",
+      force,
+    });
+
+    // Write Gateway.sol
+    writeLibGateway(
+      { ACL: ACL_res.address, GatewayContract: GatewayContract_res.address, KMSVerifier: KMSVerifier_res.address },
+      hre,
+    );
+  });
+
 subtask(TASK_FHEVM_COMPILE, async (_taskArgs, hre) => {
   logTrace("compile fhevm contracts");
 
-  await hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "ACL" });
-  await hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "TFHEExecutor" });
-  await hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "KMSVerifier" });
-  await hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "GatewayContract" });
+  await hre.run(TASK_FHEVM_WRITE_ALL_CONTRACTS, { force: !true });
 
   const dir = writeImportSolFile(hre);
   await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
@@ -495,7 +546,7 @@ subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
     );
   }
 
-  const cleanOrBuild = await cleanOrBuildNeeded(hre);
+  const cleanOrBuild = cleanOrBuildNeeded(hre);
   const keysNotInstalled = keysInstallNeeded(hre);
 
   const fhevmIsRunning = await hre.fhevm.dockerServices().isFhevmRunning();
@@ -635,6 +686,20 @@ fhevmScope.task(SCOPE_FHEVM_TASK_RESTART, async (_taskArgs, hre) => {
   await hre.run(TASK_FHEVM_START);
 
   hre.fhevm.__exitForceLocal();
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// Compile
+////////////////////////////////////////////////////////////////////////////////
+
+task(TASK_COMPILE, async (_taskArgs, hre, runSuper) => {
+  if (HardhatFhevmRuntimeEnvironment.isUserRequested(hre)) {
+    await hre.run(TASK_FHEVM_WRITE_ALL_CONTRACTS, { force: false });
+  }
+
+  // No init needed at this point
+
+  return runSuper();
 });
 
 ////////////////////////////////////////////////////////////////////////////////
