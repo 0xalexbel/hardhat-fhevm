@@ -190,7 +190,7 @@ describe("TestAsyncDecrypt", function () {
     expect(y).to.equal(hre.ethers.toBeHex(18446744073709550022n, 256));
   });
 
-  it("Test12: test async decrypt ebytes256 non-trivial with snapsho2t [skip-on-coverage]", async function () {
+  it("Test12: test async decrypt ebytes256 non-trivial with snapshot [skip-on-coverage]", async function () {
     if (hre.network.name === "hardhat") {
       snapshotId = await hre.ethers.provider.send("evm_snapshot");
       const inputAlice = instances.alice.createEncryptedInput(contractAddress, signers.alice.address);
