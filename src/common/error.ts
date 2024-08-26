@@ -12,6 +12,10 @@ export class HardhatFhevmInternalError extends NomicLabsHardhatPluginError {
   }
 }
 
+export type LogOptions = {
+  indent: string;
+};
+
 export function logBox(msg: string) {
   const left = " ".repeat(1);
   const inner = " ".repeat(2);
@@ -31,10 +35,12 @@ export function logBox(msg: string) {
   console.log("");
 }
 
-export function logTrace(msg: string) {
-  console.log(`\x1b[32m✔ hardhat-fhevm:\x1b[0m ${msg}`);
+export function logTrace(msg: string, options?: LogOptions) {
+  const indent = options ? options.indent : "";
+  console.log(`${indent}\x1b[32m✔ hardhat-fhevm:\x1b[0m ${msg}`);
 }
 
-export function logDim(msg: string) {
-  console.log(`\x1b[2m${msg}\x1b[0m`);
+export function logDim(msg: string, options?: LogOptions) {
+  const indent = options ? options.indent : "";
+  console.log(`${indent}\x1b[2m${msg}\x1b[0m`);
 }

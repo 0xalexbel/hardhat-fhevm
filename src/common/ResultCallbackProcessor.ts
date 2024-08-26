@@ -5,7 +5,7 @@ import { HardhatRuntimeEnvironment } from "hardhat/types";
 
 import { getGatewayContract } from "./contracts";
 import { currentTime } from "./utils";
-import { HardhatFhevmError, logBox, logDim } from "./error";
+import { HardhatFhevmError, logBox, logDim, LogOptions } from "./error";
 import { waitNBlocks } from "./wait";
 import { RequestIDDB } from "./RequestIDDB";
 import { HardhatFhevmDecryption } from "../types";
@@ -220,20 +220,27 @@ export abstract class ResultCallbackProcessor {
 
     let poll_count = 0;
 
+    const logOptions: LogOptions = { indent: "  " };
+
     /* eslint-disable no-constant-condition */
     while (poll_count < 100) {
       poll_count++;
 
+      logDim(`[Poll count: ${poll_count} from:${fromBlock} to:${toBlock}]`);
+
       let newEvts;
-      if (poll_count > 10) {
+      if (poll_count % 10 === 0) {
         // Something went wrong ?? try to repoll past blocks
         const repoll_start = Math.max(0, startCurrentBlock - 2);
 
-        logDim(`[from:${fromBlock} to:${toBlock}] Try to re-poll past blocks from: ${repoll_start} to: ${toBlock}.`);
+        logDim(
+          `[Re-poll from:${fromBlock} to:${toBlock}] Try to re-poll past blocks from: ${repoll_start} to: ${toBlock}.`,
+          logOptions,
+        );
 
-        newEvts = await this._queryGatewayEvents(repoll_start, toBlock);
+        newEvts = await this._queryGatewayEvents(repoll_start, toBlock, logOptions);
       } else {
-        newEvts = await this._queryGatewayEvents(fromBlock, toBlock);
+        newEvts = await this._queryGatewayEvents(fromBlock, toBlock, logOptions);
       }
 
       if (!decryptionRequests) {
@@ -254,16 +261,21 @@ export abstract class ResultCallbackProcessor {
 
         logDim(
           `[from:${fromBlock} to:${toBlock}] All decryptions are completed (number of decryptions=${requestIDs.length}).`,
+          logOptions,
         );
 
         return { toBlock, requestIDs };
       }
 
       if (pendingRequestIDs.length === 1) {
-        logDim(`[from:${fromBlock} to:${toBlock}] one pending request id=${pendingRequestIDs[0]}, wait one block...`);
+        logDim(
+          `[from:${fromBlock} to:${toBlock}] one pending request id=${pendingRequestIDs[0]}, wait one block...`,
+          logOptions,
+        );
       } else {
         logDim(
           `[from:${fromBlock} to:${toBlock}] pending request id range=[${pendingRequestIDs[0]}-${pendingRequestIDs[pendingRequestIDs.length - 1]}], wait one block...`,
+          logOptions,
         );
       }
 
@@ -322,15 +334,20 @@ export abstract class ResultCallbackProcessor {
   private async _queryGatewayEvents(
     fromBlock: number,
     toBlock: number,
+    logOptions: LogOptions,
   ): Promise<{ newResults: bigint[]; newRequests: bigint[] }> {
     const [newResults, newRequests] = await Promise.all([
-      this._queryGatewayResultCallbackEvents(fromBlock, toBlock),
-      this._queryGatewayEventDecryptionEvents(fromBlock, toBlock),
+      this._queryGatewayResultCallbackEvents(fromBlock, toBlock, logOptions),
+      this._queryGatewayEventDecryptionEvents(fromBlock, toBlock, logOptions),
     ]);
     return { newResults, newRequests };
   }
 
-  private async _queryGatewayResultCallbackEvents(fromBlock: number, toBlock: number): Promise<bigint[]> {
+  private async _queryGatewayResultCallbackEvents(
+    fromBlock: number,
+    toBlock: number,
+    logOptions: LogOptions,
+  ): Promise<bigint[]> {
     const resultCallbackTopics = await this.gatewayContract!.filters.ResultCallback().getTopicFilter();
     const resultCallbackFilter = {
       address: this.gatewayContractAddress,
@@ -346,6 +363,7 @@ export abstract class ResultCallbackProcessor {
     if (logs.length === 0) {
       logDim(
         `[Query 'ResultCallback'  from:${fromBlock} to:${toBlock}] no event, pending=${this._requestIDDB.countPending()}`,
+        logOptions,
       );
 
       return newly_added_rIDs;
@@ -373,14 +391,19 @@ export abstract class ResultCallbackProcessor {
       }
 
       logDim(
-        `[Query 'ResultCallback' from:${fromBlock} to:${toBlock}] completedQueue push id=${evt.requestID} blockNumber=${evt.blockNumber} success=${evt.success} pending=${this._requestIDDB.countPending()}`,
+        `[Query 'ResultCallback'  from:${fromBlock} to:${toBlock}] completedQueue push id=${evt.requestID} blockNumber=${evt.blockNumber} success=${evt.success} pending=${this._requestIDDB.countPending()}`,
+        logOptions,
       );
     }
 
     return newly_added_rIDs;
   }
 
-  private async _queryGatewayEventDecryptionEvents(fromBlock: number, toBlock: number): Promise<bigint[]> {
+  private async _queryGatewayEventDecryptionEvents(
+    fromBlock: number,
+    toBlock: number,
+    logOptions: LogOptions,
+  ): Promise<bigint[]> {
     const eventDecryptionTopics = await this.gatewayContract!.filters.EventDecryption().getTopicFilter();
     const eventDecryptionFilter = {
       address: this.gatewayContractAddress,
@@ -396,6 +419,7 @@ export abstract class ResultCallbackProcessor {
     if (logs.length === 0) {
       logDim(
         `[Query 'EventDecryption' from:${fromBlock} to:${toBlock}] no event, pending=${this._requestIDDB.countPending()}`,
+        logOptions,
       );
 
       return newly_added_rIDs;
@@ -437,6 +461,7 @@ export abstract class ResultCallbackProcessor {
 
       logDim(
         `[Query 'EventDecryption' from:${fromBlock} to:${toBlock}] pendingQueue push id=${evt.requestID}, blockNumber=${evt.blockNumber} pending=${this._requestIDDB.countPending()}`,
+        logOptions,
       );
     }
 
