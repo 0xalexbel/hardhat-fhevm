@@ -391,7 +391,7 @@ export abstract class ResultCallbackProcessor {
       }
 
       logDim(
-        `[Query 'ResultCallback'  from:${fromBlock} to:${toBlock}] completedQueue push id=${evt.requestID} blockNumber=${evt.blockNumber} success=${evt.success} pending=${this._requestIDDB.countPending()}`,
+        `[Query 'ResultCallback'  from:${fromBlock} to:${toBlock}] push requestID=${evt.requestID} blockNumber=${evt.blockNumber} success=${evt.success} pending=${this._requestIDDB.countPending()}`,
         logOptions,
       );
     }
@@ -460,7 +460,7 @@ export abstract class ResultCallbackProcessor {
       }
 
       logDim(
-        `[Query 'EventDecryption' from:${fromBlock} to:${toBlock}] pendingQueue push id=${evt.requestID}, blockNumber=${evt.blockNumber} pending=${this._requestIDDB.countPending()}`,
+        `[Query 'EventDecryption' from:${fromBlock} to:${toBlock}] push requestID=${evt.requestID}, blockNumber=${evt.blockNumber} pending=${this._requestIDDB.countPending()}`,
         logOptions,
       );
     }
@@ -493,7 +493,7 @@ export abstract class ResultCallbackProcessor {
       this._requestIDDB.pushRequest(evt);
 
       logDim(
-        `[Tx 'EventDecryption' block:${log.blockNumber}] pendingQueue push id=${evt.requestID}, blockNumber=${evt.blockNumber} pending=${this._requestIDDB.countPending()}`,
+        `[Tx 'EventDecryption' block:${log.blockNumber}] push requestID=${evt.requestID}, blockNumber=${evt.blockNumber} pending=${this._requestIDDB.countPending()}`,
       );
     }
     return evts;
