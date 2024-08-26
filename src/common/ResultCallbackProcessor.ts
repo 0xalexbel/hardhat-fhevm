@@ -210,15 +210,31 @@ export abstract class ResultCallbackProcessor {
     let toBlock = currentBlock;
     assert(fromBlock <= toBlock);
 
+    const startCurrentBlock = currentBlock;
+
     const requests = new Set<bigint>();
 
     if (!decryptionRequests) {
       this._requestIDDB.getPendingRequestIDs().forEach((rID) => requests.add(rID));
     }
 
+    let poll_count = 0;
+
     /* eslint-disable no-constant-condition */
-    while (true) {
-      const newEvts = await this._queryGatewayEvents(fromBlock, toBlock);
+    while (poll_count < 100) {
+      poll_count++;
+
+      let newEvts;
+      if (poll_count > 10) {
+        // Something went wrong ?? try to repoll past blocks
+        const repoll_start = Math.max(0, startCurrentBlock - 2);
+
+        logDim(`[from:${fromBlock} to:${toBlock}] Try to re-poll past blocks from: ${repoll_start} to: ${toBlock}.`);
+
+        newEvts = await this._queryGatewayEvents(repoll_start, toBlock);
+      } else {
+        newEvts = await this._queryGatewayEvents(fromBlock, toBlock);
+      }
 
       if (!decryptionRequests) {
         newEvts.newRequests.forEach((rID) => requests.add(rID));
@@ -262,6 +278,8 @@ export abstract class ResultCallbackProcessor {
 
       assert(toBlock >= fromBlock);
     }
+
+    throw new HardhatFhevmError("Poll blocks failed");
   }
 
   protected abstract tryDecrypt(requestIDs: bigint[]): Promise<void>;
@@ -283,7 +301,7 @@ export abstract class ResultCallbackProcessor {
         assert(eventData instanceof ethers.ContractEventPayload);
         const blockNumber = eventData.log.blockNumber;
         logDim(
-          `[EventDecryption event] ${currentTime()} - Requested decrypt on block ${blockNumber} (requestID ${requestID})`,
+          `[Trace 'EventDecryption' event] ${currentTime()} - Requested decrypt on block ${blockNumber} (requestID ${requestID})`,
         );
       },
     );
@@ -295,7 +313,7 @@ export abstract class ResultCallbackProcessor {
         assert(eventData instanceof ethers.ContractEventPayload);
         const blockNumber = eventData.log.blockNumber;
         logDim(
-          `[ResultCallback event] ${currentTime()} - Fulfilled decrypt on block ${blockNumber} (requestID ${requestID})`,
+          `[Trace 'ResultCallback'  event] ${currentTime()} - Fulfilled decrypt on block ${blockNumber} (requestID ${requestID})`,
         );
       },
     );
@@ -321,9 +339,17 @@ export abstract class ResultCallbackProcessor {
       topics: resultCallbackTopics,
     };
 
-    const newly_added_rID: bigint[] = [];
+    const newly_added_rIDs: bigint[] = [];
 
     const logs = await this.provider().getLogs(resultCallbackFilter);
+
+    if (logs.length === 0) {
+      logDim(
+        `[Query 'ResultCallback'  from:${fromBlock} to:${toBlock}] no event, pending=${this._requestIDDB.countPending()}`,
+      );
+
+      return newly_added_rIDs;
+    }
 
     for (let i = 0; i < logs.length; ++i) {
       const log: ethers.Log = logs[i];
@@ -343,7 +369,7 @@ export abstract class ResultCallbackProcessor {
 
       const added = this._requestIDDB.pushResult(evt);
       if (added) {
-        newly_added_rID.push(evt.requestID);
+        newly_added_rIDs.push(evt.requestID);
       }
 
       logDim(
@@ -351,7 +377,7 @@ export abstract class ResultCallbackProcessor {
       );
     }
 
-    return newly_added_rID;
+    return newly_added_rIDs;
   }
 
   private async _queryGatewayEventDecryptionEvents(fromBlock: number, toBlock: number): Promise<bigint[]> {
@@ -366,6 +392,14 @@ export abstract class ResultCallbackProcessor {
     const newly_added_rIDs: bigint[] = [];
 
     const logs = await this.provider().getLogs(eventDecryptionFilter);
+
+    if (logs.length === 0) {
+      logDim(
+        `[Query 'EventDecryption' from:${fromBlock} to:${toBlock}] no event, pending=${this._requestIDDB.countPending()}`,
+      );
+
+      return newly_added_rIDs;
+    }
 
     for (let i = 0; i < logs.length; ++i) {
       const log: ethers.Log = logs[i];
