@@ -82,6 +82,7 @@ import {
   ____deployAndRunGatewayFirstRequestBugAvoider,
   ____writeGatewayFirstRequestBugAvoider,
   writeMockedPrecompile,
+  areFhevmContractsDeployed,
 } from "./common/contracts";
 import assert from "assert";
 import { HardhatFhevmRuntimeEnvironment, FhevmRuntimeEnvironmentType } from "./common/HardhatFhevmRuntimeEnvironment";
@@ -561,8 +562,13 @@ subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
   const cleanOrBuild = cleanOrBuildNeeded(hre);
   const keysNotInstalled = keysInstallNeeded(hre);
 
+  let deployed = false;
   const fhevmIsRunning = await hre.fhevm.dockerServices().isFhevmRunning();
-  if (fhevmIsRunning && !cleanOrBuild.clean && !keysNotInstalled) {
+  if (fhevmIsRunning) {
+    deployed = await areFhevmContractsDeployed(hre);
+  }
+
+  if (fhevmIsRunning && !cleanOrBuild.clean && !keysNotInstalled && deployed) {
     if (cleanOrBuild.build) {
       await hre.run(TASK_FHEVM_COMPILE);
     }

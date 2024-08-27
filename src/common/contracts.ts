@@ -375,10 +375,6 @@ export function getFhevmContractAddressInfo(
 export function getFhevmContractBuildInfo(contractName: FhevmContractName, hre: HardhatRuntimeEnvironment) {
   const { currentAddress, nextAddress } = getFhevmContractAddressInfo(contractName, hre);
   const params = getFhevmContractParams(contractName, getUserPackageNodeModulesDir(hre.config));
-  // const currentAddress = readFhevmContractAddress(params, getUserPackageNodeModulesDir(hre.config));
-  // const deployer = getFhevmContractDeployerSigner(contractName, hre);
-  // const nextAddress = computeContractAddress(contractName, deployer.address, hre);
-  // assert(nextAddress.length > 0, "computeContractAddress failed!");
 
   let artifact = null;
   try {
@@ -413,6 +409,21 @@ export function cleanOrBuildNeeded(hre: HardhatRuntimeEnvironment): { clean: boo
     }
   }
   return res;
+}
+
+export async function areFhevmContractsDeployed(hre: HardhatRuntimeEnvironment): Promise<boolean> {
+  // TODO, the function is incomplete.
+  // Extra contracts are not tested.
+  const names: FhevmContractName[] = ["ACL", "KMSVerifier", "GatewayContract", "TFHEExecutor"];
+  for (let i = 0; i < names.length; ++i) {
+    const info = getFhevmContractBuildInfo(names[i], hre);
+    const codeAtAddress = await hre.fhevm.provider().getCode(info.nextAddress);
+    if (codeAtAddress === "0x") {
+      logDim(`${names[i]} is not properly deployed.`);
+      return false;
+    }
+  }
+  return true;
 }
 
 export function getTFHEExecutorArtifact(hre: HardhatRuntimeEnvironment): Artifact {
