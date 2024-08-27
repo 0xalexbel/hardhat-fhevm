@@ -150,13 +150,13 @@ export class DockerServices {
   }
 
   async isFhevmRunning(): Promise<boolean> {
-    const stdout = await runCmd(`docker compose -f ${this.installDockerFile} ls`);
+    const stdout = await runCmd(`docker compose -f ${this.installDockerFile} ls`, 5000);
     return stdout.indexOf("running(6)") > 0;
   }
 
   async isDockerRunning(): Promise<boolean> {
     try {
-      await runCmd("docker info");
+      await runCmd("docker images", 2000);
       return true;
     } catch {
       return false;

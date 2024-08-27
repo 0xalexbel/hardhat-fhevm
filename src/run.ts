@@ -78,30 +78,16 @@ function getPATH(): string {
 // function runCmdSync(cmd: string): string {
 //   try {
 //     return execSync(cmd, { stdio: "pipe" }).toString();
-//   } catch (error: any) {
-//     const pluginError = buildFhevmError(error.status, error.stderr.toString());
-
-//     throw pluginError;
+//   } catch (error) {
+//     throw new HardhatFhevmError(`Unexpected error while running ${cmd}: ${error}`);
 //   }
 // }
 
-export async function runCmd(cmd: string): Promise<string> {
+export async function runCmd(cmd: string, timeout?: number | undefined): Promise<string> {
   try {
-    const { stdout } = await exec(cmd);
+    const { stdout } = await exec(cmd, { timeout: timeout });
     return stdout;
   } catch (error) {
-    const e = error as { code?: number; message: string };
-    throw buildFhevmError(e.code, e.message);
-  }
-}
-
-function buildFhevmError(exitCode: number | undefined, message: string) {
-  switch (exitCode) {
-    case 127:
-      return new HardhatFhevmError("Couldn't run `forge`. Please check that your foundry installation is correct.");
-    case 134:
-      return new HardhatFhevmError("Running `forge` failed. Please check that your foundry.toml file is correct.");
-    default:
-      return new HardhatFhevmError(`Unexpected error while running \`forge\`: ${message}`);
+    throw new HardhatFhevmError(`Unexpected error while running ${cmd}: ${error}`);
   }
 }

@@ -546,8 +546,8 @@ subtask(TASK_FHEVM_DEPLOY, async (_taskArgs, hre) => {
 
 subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
   if (!(await hre.fhevm.dockerServices().isDockerRunning())) {
-    logBox("Docker is not running. Please start docker first.");
-    throw new HardhatFhevmError("Docker is not running. Please start docker first.");
+    logBox("Docker is not running (or is in resource saving mode). Please start docker first.");
+    throw new HardhatFhevmError("Docker is not running (or is in resource saving mode). Please start docker first.");
   }
 
   if (!hre.fhevm.isLocal()) {
