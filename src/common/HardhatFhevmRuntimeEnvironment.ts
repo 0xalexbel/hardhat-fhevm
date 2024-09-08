@@ -120,6 +120,13 @@ export abstract class HardhatFhevmRuntimeEnvironment {
   public abstract decrypt64(handle: bigint): Promise<bigint>;
   public abstract decryptAddress(handle: bigint): Promise<string>;
 
+  public async createEncryptedInput(contract: ethers.AddressLike, user: ethers.AddressLike) {
+    const instance = await this.createInstance();
+    const contractAddr = await this.hre.ethers.resolveAddress(contract);
+    const userAddr = await this.hre.ethers.resolveAddress(user);
+    return instance.createEncryptedInput(contractAddr, userAddr);
+  }
+
   public ACLAddress() {
     return readFhevmContractAddress("ACL", getUserPackageNodeModulesDir(this.hre.config));
   }

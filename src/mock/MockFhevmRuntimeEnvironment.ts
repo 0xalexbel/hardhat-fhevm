@@ -29,7 +29,10 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
   }
 
   public async init(): Promise<void> {
-    logTrace("initialize fhevm mock runtime.");
+    const initialized = this._coprocessor && this._resultprocessor;
+    if (!initialized) {
+      logTrace("initialize fhevm mock runtime.");
+    }
 
     await super.init();
 

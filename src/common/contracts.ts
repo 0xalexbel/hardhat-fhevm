@@ -488,12 +488,12 @@ export function writeImportSolFile(hre: HardhatRuntimeEnvironment) {
   const solidityTemplate = `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import "fhevm/lib/TFHE.sol";
-import "fhevm/lib/ACL.sol";
-import "fhevm/lib/KMSVerifier.sol";
-import "fhevm/lib/TFHEExecutor.sol";
-import "fhevm/gateway/GatewayContract.sol";
-import "fhevm/gateway/GatewayCaller.sol";
+import {TFHE} from "fhevm/lib/TFHE.sol";
+import {ACL} from "fhevm/lib/ACL.sol";
+import {KMSVerifier} from "fhevm/lib/KMSVerifier.sol";
+import {TFHEExecutor} from "fhevm/lib/TFHEExecutor.sol";
+import {GatewayContract} from "fhevm/gateway/GatewayContract.sol";
+import {GatewayCaller} from "fhevm/gateway/GatewayCaller.sol";
 \n`;
 
   try {
@@ -511,7 +511,7 @@ export function writeMockedPrecompile(hre: HardhatRuntimeEnvironment) {
   const solidityTemplate = `// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import "fhevm/lib/MockedPrecompile.sol";
+import {MockedPrecompile} from "fhevm/lib/MockedPrecompile.sol";
 \n`;
 
   try {
@@ -529,8 +529,9 @@ export function ____writeGatewayFirstRequestBugAvoider(hre: HardhatRuntimeEnviro
 
 pragma solidity ^0.8.24;
 
-import "fhevm/lib/TFHE.sol";
-import "fhevm/gateway/GatewayCaller.sol";
+import {TFHE, euint8} from "fhevm/lib/TFHE.sol";
+import {GatewayCaller} from "fhevm/gateway/GatewayCaller.sol";
+import {Gateway} from "fhevm/gateway/lib/Gateway.sol";
 
 contract GatewayFirstRequestBugAvoider is GatewayCaller {
     euint8 xUint8;

@@ -281,7 +281,17 @@ subtask(TASK_FHEVM_ACCOUNTS, async (_taskArgs, hre) => {
 
 subtask(TASK_FHEVM_ACCOUNTS_SET_BALANCE, async (_taskArgs, hre) => {
   logTrace("setup accounts balance");
-  const addresses = await hre.run(TASK_FHEVM_ACCOUNTS);
+  const addresses: string[] = await hre.run(TASK_FHEVM_ACCOUNTS);
+  assert(Array.isArray(addresses));
+
+  const n = hre.config.networks.fhevm.accounts.count;
+  for (let i = 0; i < n; ++i) {
+    const a = getWalletAddressAt(i, hre.config);
+    if (!addresses.includes(a)) {
+      addresses.push(a);
+    }
+  }
+
   const promises = addresses.map((address: string) => {
     if (hre.fhevm.isLocal()) {
       return setBalance(address, hre.config.networks.fhevm.accounts.accountsBalance, hre);
