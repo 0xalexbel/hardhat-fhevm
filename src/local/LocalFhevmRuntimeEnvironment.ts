@@ -28,7 +28,10 @@ export class LocalFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment
   }
 
   public async init(): Promise<void> {
-    logTrace("initialize fhevm runtime.");
+    const initialized = this._fhevmjs_decryptor && this._resultprocessor;
+    if (!initialized) {
+      logTrace("initialize fhevm runtime.");
+    }
 
     await super.init();
 

@@ -40,13 +40,17 @@ import {
   TASK_FHEVM_START_MOCK,
   TASK_FHEVM_COMPUTE_CONTRACT_ADDRESS,
   TASK_FHEVM_CLEAN_IF_NEEDED,
+  TASK_FHEVM_WRITE_ALL_CONTRACTS,
+  TASK_FHEVM_DEPLOY_EXTRA,
+} from "./internal-task-names";
+
+import {
   SCOPE_FHEVM,
   SCOPE_FHEVM_TASK_START,
   SCOPE_FHEVM_TASK_STOP,
   SCOPE_FHEVM_TASK_RESTART,
-  TASK_FHEVM_WRITE_ALL_CONTRACTS,
-  TASK_FHEVM_DEPLOY_EXTRA,
   SCOPE_FHEVM_TASK_CLEAN,
+  TASK_FHEVM_SETUP,
 } from "./task-names";
 
 import { logTrace, HardhatFhevmError, logBox, logDim } from "./common/error";
@@ -766,8 +770,27 @@ subtask(TASK_TEST_SETUP_TEST_ENVIRONMENT, async (_taskArgs, hre, runSuper) => {
 });
 
 task(TASK_TEST, async (taskArgs, hre, runSuper) => {
+  await hre.run(TASK_FHEVM_SETUP);
+
+  // if (!HardhatFhevmRuntimeEnvironment.isUserRequested(hre)) {
+  //   return runSuper();
+  // }
+
+  // if (hre.fhevm.runtimeType() === FhevmRuntimeEnvironmentType.Mock) {
+  //   await hre.run(TASK_FHEVM_START_MOCK);
+  // } else {
+  //   await hre.run(TASK_FHEVM_START);
+  // }
+
+  // // Initialize fhevm runtime
+  // await hre.fhevm.init();
+
+  return runSuper();
+});
+
+subtask(TASK_FHEVM_SETUP, async (taskArgs, hre) => {
   if (!HardhatFhevmRuntimeEnvironment.isUserRequested(hre)) {
-    return runSuper();
+    return;
   }
 
   if (hre.fhevm.runtimeType() === FhevmRuntimeEnvironmentType.Mock) {
@@ -778,6 +801,4 @@ task(TASK_TEST, async (taskArgs, hre, runSuper) => {
 
   // Initialize fhevm runtime
   await hre.fhevm.init();
-
-  return runSuper();
 });

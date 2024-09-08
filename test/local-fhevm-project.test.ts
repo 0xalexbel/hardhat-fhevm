@@ -2,17 +2,14 @@
 import { assert } from "chai";
 import fs from "fs";
 
+import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_START, SCOPE_FHEVM_TASK_STOP } from "../src/task-names";
 import {
-  SCOPE_FHEVM,
-  SCOPE_FHEVM_TASK_START,
-  SCOPE_FHEVM_TASK_STOP,
   TASK_FHEVM_COMPILE,
   TASK_FHEVM_CREATE_KEYS,
   TASK_FHEVM_REMOVE_KEYS,
   TASK_FHEVM_VERIFY_CONTRACTS,
   TASK_FHEVM_WRITE_CONTRACT,
-} from "../src/task-names";
-
+} from "../src/internal-task-names";
 import { useEnvironment } from "./helpers";
 import {
   getACLParams,

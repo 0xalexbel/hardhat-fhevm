@@ -2,7 +2,7 @@
 import { assert } from "chai";
 import fs from "fs";
 
-import { TASK_FHEVM_COMPILE, TASK_FHEVM_WRITE_CONTRACT } from "../src/task-names";
+import { TASK_FHEVM_COMPILE, TASK_FHEVM_WRITE_CONTRACT } from "../src/internal-task-names";
 
 import { useEnvironment } from "./helpers";
 import {
