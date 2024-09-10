@@ -4,7 +4,7 @@ import { ResultCallbackProcessor, EventDecryptionEvent } from "../common/ResultC
 import { FhevmClearTextSolidityType, getHandleFhevmType } from "../common/handle";
 import { MockFhevmRuntimeEnvironment } from "./MockFhevmRuntimeEnvironment";
 import { FhevmRuntimeEnvironmentType } from "../common/HardhatFhevmRuntimeEnvironment";
-import { HardhatFhevmError, logDim } from "../common/error";
+import { HardhatFhevmError } from "../common/error";
 import { getMockACL } from "../common/contracts";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { MapID } from "../common/RequestIDDB";

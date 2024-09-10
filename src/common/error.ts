@@ -40,6 +40,7 @@ export function logBox(msg: string, options: LogOptions) {
   _log("", options);
 }
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 function _log(msg: string, options: LogOptions) {
   // if (options.stderr === true) {
   //   console.error(msg);

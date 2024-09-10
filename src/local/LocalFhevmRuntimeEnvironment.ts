@@ -7,7 +7,7 @@ import {
 import { readFileSync } from "fs";
 import { getInstallPrivKeyFile } from "../common/dirs";
 import fhevmjs from "fhevmjs/node";
-import { logTrace, HardhatFhevmError } from "../common/error";
+import { HardhatFhevmError } from "../common/error";
 import { LocalResultCallbackProcessor } from "./LocalResultCallbackProcessor";
 
 interface FhevmjsDecryptor {

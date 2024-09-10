@@ -9,7 +9,6 @@ import { bigIntToAddress } from "../common/utils";
 import assert from "assert";
 import mock_fhevmjs from "./mock_fhevmjs";
 import { MockResultCallbackProcessor } from "./MockResultCallbackProcessor";
-import { logTrace } from "../common/error";
 import { ethers } from "ethers";
 
 export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment {
