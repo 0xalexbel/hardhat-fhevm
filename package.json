@@ -1,6 +1,6 @@
 {
   "name": "hardhat-fhevm",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Hardhat Fhevm plugin",
   "repository": "github:0xalexbel/hardhat-fhevm",
   "author": "Alexandre Belhoste",
