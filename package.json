@@ -35,7 +35,6 @@
   ],
   "dependencies": {
     "bigint-buffer": "^1.1.5",
-    "chalk": "^5.3.0",
     "cross-spawn": "^7.0.3",
     "dotenv": "^16.4.5",
     "extra-bigint": "^1.1.18",

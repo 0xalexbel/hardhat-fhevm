@@ -84,7 +84,7 @@ export class MockResultCallbackProcessor extends ResultCallbackProcessor {
     // we just pop the dummy requestID to get the correct value to pass for `decryptedCts`
     const calldata = "0x" + encodedData.slice(66);
 
-    logDim(`Mock calling: gatewayContract.fulfillRequest(${eventDecryption.requestID})...`);
+    this.logDim(`Mock calling: gatewayContract.fulfillRequest(${eventDecryption.requestID})...`);
 
     // Call "fulfillRequest" manually
     /* eslint-disable @typescript-eslint/ban-ts-comment */
@@ -99,6 +99,6 @@ export class MockResultCallbackProcessor extends ResultCallbackProcessor {
     );
     await tx.wait();
 
-    logDim(`Mock call: gatewayContract.fulfillRequest(${eventDecryption.requestID}) completed.`);
+    this.logDim(`Mock call: gatewayContract.fulfillRequest(${eventDecryption.requestID}) completed.`);
   }
 }

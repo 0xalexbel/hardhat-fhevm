@@ -419,7 +419,7 @@ export async function areFhevmContractsDeployed(hre: HardhatRuntimeEnvironment):
     const info = getFhevmContractBuildInfo(names[i], hre);
     const codeAtAddress = await hre.fhevm.provider().getCode(info.nextAddress);
     if (codeAtAddress === "0x") {
-      logDim(`${names[i]} is not properly deployed.`);
+      logDim(`${names[i]} is not properly deployed.`, hre.fhevm.logOptions());
       return false;
     }
   }
@@ -475,7 +475,7 @@ export function writeLibGateway(
 
     fs.writeFileSync(p, new_content, { encoding: "utf8", flag: "w" });
 
-    logTrace(`write fhevm Gateway.sol contract`);
+    logTrace(`write fhevm Gateway.sol contract`, hre.fhevm.logOptions());
 
     return true;
   } catch (error) {
@@ -581,7 +581,7 @@ export function writeContractAddress(
 
   const params = getFhevmContractParams(contractName, getUserPackageNodeModulesDir(hre.config));
 
-  logTrace(`write fhevm ${params.contractFilename} contract.`);
+  logTrace(`write fhevm ${params.contractFilename} contract.`, hre.fhevm.logOptions());
 
   const contractAddress = ethers.getCreateAddress({
     from: deployerAddress,
@@ -689,7 +689,10 @@ export async function deployFhevmContract(
     );
   }
 
-  logDim(`${contractName.padEnd(15, " ")} deployed at ${address} (deployer=${deployer.address})`);
+  logDim(
+    `${contractName.padEnd(15, " ")} deployed at ${address} (deployer=${deployer.address})`,
+    hre.fhevm.logOptions(),
+  );
 
   return address;
 }

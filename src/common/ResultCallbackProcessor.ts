@@ -97,8 +97,8 @@ export abstract class ResultCallbackProcessor {
     this._latestBlockNumberPolled = blockNum - 1;
     this._nextBlockNumberToPoll = blockNum;
 
-    logDim(`Revert to block ${blockNum} removed ${n_before - n_after} request ids`);
-    logDim(`Revert to block ${blockNum} keeping ${n_after} past completed ids.`);
+    this.logDim(`Revert to block ${blockNum} removed ${n_before - n_after} request ids`);
+    this.logDim(`Revert to block ${blockNum} keeping ${n_after} past completed ids.`);
   }
 
   public async waitForDecryptions(decryptionRequests?: EventDecryptionEvent[]): Promise<HardhatFhevmDecryption[]> {
@@ -112,11 +112,11 @@ export abstract class ResultCallbackProcessor {
       const n_pending = this._requestIDDB.countPending(decryptionRequests);
       if (n_pending === 0) {
         // Don't do anything, all decryptions are completed
-        logDim(`[Block:${currentBlockNumber}] all decryptions are completed.`);
+        this.logDim(`[Block:${currentBlockNumber}] all decryptions are completed.`);
         return [];
       }
 
-      logDim(`[Block:${currentBlockNumber}] still ${n_pending} pending request ids. Wait one block needed.`);
+      this.logDim(`[Block:${currentBlockNumber}] still ${n_pending} pending request ids. Wait one block needed.`);
       await waitNBlocks(1, this.hre);
 
       // For debug purpose
@@ -164,13 +164,13 @@ export abstract class ResultCallbackProcessor {
 
     let poll_count = 0;
 
-    const logOptions: LogOptions = { indent: "  " };
+    const logOptions: LogOptions = { ...this.hre.fhevm.logOptions(), indent: "  " };
 
     /* eslint-disable no-constant-condition */
     while (poll_count < 100) {
       poll_count++;
 
-      logDim(`[Poll count: ${poll_count} from:${fromBlock} to:${toBlock}]`);
+      this.logDim(`[Poll count: ${poll_count} from:${fromBlock} to:${toBlock}]`);
 
       let newEvts;
       if (poll_count % 10 === 0) {
@@ -256,7 +256,7 @@ export abstract class ResultCallbackProcessor {
       ) => {
         assert(eventData instanceof ethers.ContractEventPayload);
         const blockNumber = eventData.log.blockNumber;
-        logDim(
+        this.logDim(
           `[Trace 'EventDecryption' event] ${currentTime()} - Requested decrypt on block ${blockNumber} (requestID ${requestID})`,
         );
       },
@@ -268,7 +268,7 @@ export abstract class ResultCallbackProcessor {
       async (requestID, _success, _result, eventData) => {
         assert(eventData instanceof ethers.ContractEventPayload);
         const blockNumber = eventData.log.blockNumber;
-        logDim(
+        this.logDim(
           `[Trace 'ResultCallback'  event] ${currentTime()} - Fulfilled decrypt on block ${blockNumber} (requestID ${requestID})`,
         );
       },
@@ -394,7 +394,7 @@ export abstract class ResultCallbackProcessor {
       */
       if (evt.requestID === BigInt(0)) {
         // Skipp first request because of bug
-        logBox("Must skip requestID === 0 : Bug in version 0.7.1");
+        this.logBox("Must skip requestID === 0 : Bug in version 0.7.1");
         continue;
       }
 
@@ -436,10 +436,17 @@ export abstract class ResultCallbackProcessor {
       evts.push(evt);
       this._requestIDDB.pushRequest(evt);
 
-      logDim(
+      this.logDim(
         `[Tx 'EventDecryption' block:${log.blockNumber}] push requestID=${evt.requestID}, blockNumber=${evt.blockNumber} pending=${this._requestIDDB.countPending()}`,
       );
     }
     return evts;
+  }
+
+  protected logDim(msg: string) {
+    logDim(msg, this.hre.fhevm.logOptions());
+  }
+  protected logBox(msg: string) {
+    logBox(msg, this.hre.fhevm.logOptions());
   }
 }

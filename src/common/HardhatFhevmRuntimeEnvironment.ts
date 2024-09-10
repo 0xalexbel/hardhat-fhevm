@@ -2,7 +2,7 @@ import { FhevmInstance } from "fhevmjs/node";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DockerServices } from "./DockerServices";
 import assert from "assert";
-import { HardhatFhevmError } from "./error";
+import { HardhatFhevmError, LogOptions } from "./error";
 import { ethers } from "ethers";
 import { LOCAL_FHEVM_NETWORK_NAME } from "../constants";
 import { EIP712 } from "fhevmjs/lib/sdk/keypair";
@@ -27,6 +27,7 @@ export abstract class HardhatFhevmRuntimeEnvironment {
   private _initialized: boolean;
   private jsonRpcProvider: ethers.JsonRpcProvider | undefined;
   protected _resultprocessor: ResultCallbackProcessor | undefined;
+  private _logOptions: LogOptions;
 
   constructor(type: FhevmRuntimeEnvironmentType, hre: HardhatRuntimeEnvironment) {
     this.hre = hre;
@@ -34,6 +35,7 @@ export abstract class HardhatFhevmRuntimeEnvironment {
     this._forceUseLocalFhevmNetwork = false;
     this._initialized = false;
     this._dockerServices = new DockerServices(hre);
+    this._logOptions = { quiet: false, stderr: true };
   }
 
   public __enterForceLocal() {
@@ -66,6 +68,14 @@ export abstract class HardhatFhevmRuntimeEnvironment {
     } else {
       return this.hre.ethers.provider;
     }
+  }
+
+  public setQuiet(quiet: boolean) {
+    this._logOptions.quiet = quiet;
+  }
+
+  public logOptions() {
+    return { ...this._logOptions };
   }
 
   protected resultprocessor(): ResultCallbackProcessor {
@@ -102,6 +112,10 @@ export abstract class HardhatFhevmRuntimeEnvironment {
 
   public static localRequested(hre: HardhatRuntimeEnvironment): boolean {
     return hre.network.name === LOCAL_FHEVM_NETWORK_NAME;
+  }
+
+  public get initialized() {
+    return this._initialized;
   }
 
   public async init() {

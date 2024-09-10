@@ -102,3 +102,18 @@ export async function sleep(time: number) {
   }
   return new Promise((resolve) => setTimeout(resolve, time));
 }
+
+export async function isDeployed(provider: ethers.Provider, address: string | undefined): Promise<string | undefined> {
+  if (!address) {
+    return undefined;
+  }
+  try {
+    if ((await provider.getCode(address)) !== "0x") {
+      return address;
+    }
+    return undefined;
+  } catch {
+    // no network connection ?
+    return undefined;
+  }
+}

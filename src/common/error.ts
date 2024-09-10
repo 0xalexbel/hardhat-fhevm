@@ -13,10 +13,15 @@ export class HardhatFhevmInternalError extends NomicLabsHardhatPluginError {
 }
 
 export type LogOptions = {
-  indent: string;
+  indent?: string;
+  quiet?: boolean;
+  stderr?: boolean;
 };
 
-export function logBox(msg: string) {
+export function logBox(msg: string, options: LogOptions) {
+  if (options.quiet) {
+    return;
+  }
   const left = " ".repeat(1);
   const inner = " ".repeat(2);
 
@@ -30,17 +35,39 @@ export function logBox(msg: string) {
 
   const box = top + middle + bottom;
 
-  console.log("");
-  console.log(box);
-  console.log("");
+  _log("", options);
+  _log(box, options);
+  _log("", options);
 }
 
-export function logTrace(msg: string, options?: LogOptions) {
-  const indent = options ? options.indent : "";
-  console.log(`${indent}\x1b[32m✔ hardhat-fhevm:\x1b[0m ${msg}`);
+function _log(msg: string, options: LogOptions) {
+  // if (options.stderr === true) {
+  //   console.error(msg);
+  // } else {
+  console.log(`${msg}`);
+  // }
 }
 
-export function logDim(msg: string, options?: LogOptions) {
-  const indent = options ? options.indent : "";
-  console.log(`${indent}\x1b[2m${msg}\x1b[0m`);
+export function logTrace(msg: string, options: LogOptions) {
+  if (options.quiet) {
+    return;
+  }
+  const indent = options.indent ?? "";
+  _log(`${indent}\x1b[32m✔ hardhat-fhevm:\x1b[0m ${msg}`, options);
+}
+
+export function logDim(msg: string, options: LogOptions) {
+  if (options.quiet) {
+    return;
+  }
+  const indent = options.indent ?? "";
+  _log(`${indent}\x1b[2m${msg}\x1b[0m`, options);
+}
+
+export function logDimWithGreenPrefix(prefix: string, msg: string, options: LogOptions) {
+  if (options.quiet) {
+    return;
+  }
+  const indent = options.indent ?? "";
+  _log(`${indent}\x1b[32m${prefix}\x1b[0m\x1b[2m${msg}\x1b[0m`, options);
 }
