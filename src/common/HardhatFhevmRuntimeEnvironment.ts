@@ -2,7 +2,7 @@ import { FhevmInstance } from "fhevmjs/node";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DockerServices } from "./DockerServices";
 import assert from "assert";
-import { HardhatFhevmError, LogOptions } from "./error";
+import { HardhatFhevmError } from "./error";
 import { ethers } from "ethers";
 import { LOCAL_FHEVM_NETWORK_NAME } from "../constants";
 import { EIP712 } from "fhevmjs/lib/sdk/keypair";
@@ -17,6 +17,11 @@ export enum FhevmRuntimeEnvironmentType {
   Mock,
 }
 
+export type FhevmRuntimeLogOptions = {
+  quiet?: boolean;
+  stderr?: boolean;
+};
+
 export class HardhatFhevmDecryptionRequest {}
 
 export abstract class HardhatFhevmRuntimeEnvironment {
@@ -27,7 +32,7 @@ export abstract class HardhatFhevmRuntimeEnvironment {
   private _initialized: boolean;
   private jsonRpcProvider: ethers.JsonRpcProvider | undefined;
   protected _resultprocessor: ResultCallbackProcessor | undefined;
-  private _logOptions: LogOptions;
+  private _logOptions: FhevmRuntimeLogOptions;
 
   constructor(type: FhevmRuntimeEnvironmentType, hre: HardhatRuntimeEnvironment) {
     this.hre = hre;
@@ -70,12 +75,12 @@ export abstract class HardhatFhevmRuntimeEnvironment {
     }
   }
 
-  public setQuiet(quiet: boolean) {
-    this._logOptions.quiet = quiet;
+  public get logOptions() {
+    return { ...this._logOptions };
   }
 
-  public logOptions() {
-    return { ...this._logOptions };
+  public set logOptions(lo: FhevmRuntimeLogOptions) {
+    this._logOptions = { ...lo };
   }
 
   protected resultprocessor(): ResultCallbackProcessor {

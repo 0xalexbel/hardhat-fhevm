@@ -164,7 +164,7 @@ export abstract class ResultCallbackProcessor {
 
     let poll_count = 0;
 
-    const logOptions: LogOptions = { ...this.hre.fhevm.logOptions(), indent: "  " };
+    const logOptions: LogOptions = { ...this.hre.fhevm.logOptions, indent: "  " };
 
     /* eslint-disable no-constant-condition */
     while (poll_count < 100) {
@@ -444,9 +444,9 @@ export abstract class ResultCallbackProcessor {
   }
 
   protected logDim(msg: string) {
-    logDim(msg, this.hre.fhevm.logOptions());
+    logDim(msg, this.hre.fhevm.logOptions);
   }
   protected logBox(msg: string) {
-    logBox(msg, this.hre.fhevm.logOptions());
+    logBox(msg, this.hre.fhevm.logOptions);
   }
 }

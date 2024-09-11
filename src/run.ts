@@ -10,13 +10,15 @@ const exec = promisify(execCallback);
 export interface RunDockerOptions {
   cwd?: string;
   env?: Record<string, string>;
+  quiet?: boolean;
 }
 
 export function runDocker(args: string[], options?: RunDockerOptions): childProcess.SpawnSyncReturns<Buffer> {
   const docker = "docker";
+  const stdio: childProcess.StdioOptions = options?.quiet === true ? "ignore" : "inherit";
   return runScriptSync(docker, args, {
     cwd: options?.cwd ?? process.cwd(),
-    stdio: "inherit",
+    stdio,
     userAgent: undefined,
     env: { ...options?.env },
   });

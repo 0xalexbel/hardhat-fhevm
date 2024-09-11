@@ -109,4 +109,9 @@ describe("local tasks tests", function () {
     //assert(!(await this.hre.fhevm.dockerServices().isFhevmRunning()), "Fhevm docker services should not be running!");
     await this.hre.run(TASK_TEST);
   });
+
+  it("Local13: TASK_FHEVM_START quiet", async function () {
+    await this.hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_START }, { quiet: true });
+    assert(await this.hre.fhevm.dockerServices().isFhevmRunning(), "Fhevm docker services are not running!");
+  });
 });

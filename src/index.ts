@@ -89,7 +89,11 @@ import {
   areFhevmContractsDeployed,
 } from "./common/contracts";
 import assert from "assert";
-import { HardhatFhevmRuntimeEnvironment, FhevmRuntimeEnvironmentType } from "./common/HardhatFhevmRuntimeEnvironment";
+import {
+  HardhatFhevmRuntimeEnvironment,
+  FhevmRuntimeEnvironmentType,
+  FhevmRuntimeLogOptions,
+} from "./common/HardhatFhevmRuntimeEnvironment";
 import {
   getInstallKeysDir,
   getInstallPrivKeyFile,
@@ -208,14 +212,14 @@ async function setBalance(address: string, amount: string, hre: HardhatRuntimeEn
   while (i < maxRetry) {
     const balance = await hre.fhevm.provider().getBalance(address);
     if (balance > 0) {
-      logDim(`${address} balance=${balance}`, hre.fhevm.logOptions());
+      logDim(`${address} balance=${balance}`, hre.fhevm.logOptions);
       return;
     }
     await sleep(1000);
     i++;
   }
 
-  logDim(`${address} balance=???`, hre.fhevm.logOptions());
+  logDim(`${address} balance=???`, hre.fhevm.logOptions);
 }
 
 async function setMockBalance(
@@ -228,7 +232,7 @@ async function setMockBalance(
   await hre.network.provider.send("hardhat_setBalance", [address, ethers.toQuantity(amount)]);
 
   const balance = await hre.fhevm.provider().getBalance(address);
-  logDim(`${address} balance=${balance}`, hre.fhevm.logOptions());
+  logDim(`${address} balance=${balance}`, hre.fhevm.logOptions);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -284,7 +288,7 @@ subtask(TASK_FHEVM_ACCOUNTS, async (_taskArgs, hre) => {
 });
 
 subtask(TASK_FHEVM_ACCOUNTS_SET_BALANCE, async (_taskArgs, hre) => {
-  logTrace("setup accounts balance", hre.fhevm.logOptions());
+  logTrace("setup accounts balance", hre.fhevm.logOptions);
   const addresses: string[] = await hre.run(TASK_FHEVM_ACCOUNTS);
   assert(Array.isArray(addresses));
 
@@ -309,7 +313,7 @@ subtask(TASK_FHEVM_ACCOUNTS_SET_BALANCE, async (_taskArgs, hre) => {
 });
 
 subtask(TASK_FHEVM_CREATE_KEYS, async (_taskArgs, hre) => {
-  logTrace("setup fhevm keys", hre.fhevm.logOptions());
+  logTrace("setup fhevm keys", hre.fhevm.logOptions);
   const dockerImage = hre.fhevm.dockerServices().kmsCoreServiceDockerImage();
 
   let gatewayKmsKeyID;
@@ -329,10 +333,10 @@ subtask(TASK_FHEVM_CREATE_KEYS, async (_taskArgs, hre) => {
     const pubKeysDir = getInstallPubKeysDir(hre);
     const privKeysDir = getInstallPrivKeysDir(hre);
 
-    runDocker(["pull", dockerImage]);
-    runDocker(["create", "--name", "hhfhevm-temp-container", dockerImage]);
-    runDocker(["cp", "hhfhevm-temp-container:/app/kms/core/service/keys", tmpDir]);
-    runDocker(["rm", "hhfhevm-temp-container"]);
+    runDocker(["pull", dockerImage], hre.fhevm.logOptions);
+    runDocker(["create", "--name", "hhfhevm-temp-container", dockerImage], hre.fhevm.logOptions);
+    runDocker(["cp", "hhfhevm-temp-container:/app/kms/core/service/keys", tmpDir], hre.fhevm.logOptions);
+    runDocker(["rm", "hhfhevm-temp-container"], hre.fhevm.logOptions);
 
     fs.mkdirSync(privKeysDir, { recursive: true });
     fs.mkdirSync(pubKeysDir, { recursive: true });
@@ -350,17 +354,17 @@ subtask(TASK_FHEVM_CREATE_KEYS, async (_taskArgs, hre) => {
       throw new HardhatFhevmError("Unable to retreive private key file");
     }
 
-    logDim(`Copying server key  to ${pubKeysDir}/sks`, hre.fhevm.logOptions());
+    logDim(`Copying server key  to ${pubKeysDir}/sks`, hre.fhevm.logOptions);
     fs.copyFileSync(sks, getInstallServerKeyFile(hre));
 
-    logDim(`Copying public key  to ${pubKeysDir}/pks`, hre.fhevm.logOptions());
+    logDim(`Copying public key  to ${pubKeysDir}/pks`, hre.fhevm.logOptions);
     fs.copyFileSync(pks, getInstallPubKeyFile(hre));
 
-    logDim(`Copying private key to ${privKeysDir}/cks`, hre.fhevm.logOptions());
+    logDim(`Copying private key to ${privKeysDir}/cks`, hre.fhevm.logOptions);
     fs.copyFileSync(cks, getInstallPrivKeyFile(hre));
   } finally {
     try {
-      logDim(`rm -rf ${tmpDir}`, hre.fhevm.logOptions());
+      logDim(`rm -rf ${tmpDir}`, hre.fhevm.logOptions);
       rimraf(tmpDir);
     } catch {
       /* eslint-disable no-empty*/
@@ -369,17 +373,17 @@ subtask(TASK_FHEVM_CREATE_KEYS, async (_taskArgs, hre) => {
 });
 
 subtask(TASK_FHEVM_DOCKER_UP, async (_taskArgs, hre) => {
-  logTrace("start docker services", hre.fhevm.logOptions());
+  logTrace("start docker services", hre.fhevm.logOptions);
   await hre.fhevm.dockerServices().installFiles();
   // docker compose -f /path/to/docker-compose-full.yml up --detach
-  runDocker(["compose", "-f", hre.fhevm.dockerServices().installDockerFile, "up", "--detach"]);
+  runDocker(["compose", "-f", hre.fhevm.dockerServices().installDockerFile, "up", "--detach"], hre.fhevm.logOptions);
 });
 
 subtask(TASK_FHEVM_DOCKER_DOWN, async (_taskArgs, hre) => {
-  logTrace("stop docker services", hre.fhevm.logOptions());
+  logTrace("stop docker services", hre.fhevm.logOptions);
   await hre.fhevm.dockerServices().installFiles();
   //docker compose  -f /path/to/docker-compose-full.yml down
-  runDocker(["compose", "-f", hre.fhevm.dockerServices().installDockerFile, "down"]);
+  runDocker(["compose", "-f", hre.fhevm.dockerServices().installDockerFile, "down"], hre.fhevm.logOptions);
 });
 
 subtask(TASK_FHEVM_VERIFY_CONTRACTS, async function (taskArgs, hre) {
@@ -447,7 +451,7 @@ subtask(TASK_FHEVM_COMPILE_DIR)
 subtask(TASK_FHEVM_CLEAN_IF_NEEDED, async (_taskArgs, hre) => {
   const cleanOrBuild = cleanOrBuildNeeded(hre);
   if (cleanOrBuild.clean) {
-    logTrace("rebuild needed!", hre.fhevm.logOptions());
+    logTrace("rebuild needed!", hre.fhevm.logOptions);
     await hre.run(TASK_CLEAN);
   }
   return cleanOrBuild.clean;
@@ -484,7 +488,7 @@ subtask(TASK_FHEVM_WRITE_ALL_CONTRACTS)
   });
 
 subtask(TASK_FHEVM_COMPILE, async (_taskArgs, hre) => {
-  logTrace("compile fhevm contracts", hre.fhevm.logOptions());
+  logTrace("compile fhevm contracts", hre.fhevm.logOptions);
 
   await hre.run(TASK_FHEVM_WRITE_ALL_CONTRACTS, { force: !true });
 
@@ -527,14 +531,14 @@ subtask(TASK_FHEVM_GATEWAY_ADD_RELAYER, async (_taskArgs, hre) => {
   const tx = await gatewayContract.addRelayer(relayerWalletAddress);
   const receipt = await tx.wait();
   if (receipt!.status === 1) {
-    logDim(`Account ${relayerWalletAddress} was succesfully added as a gateway relayer`, hre.fhevm.logOptions());
+    logDim(`Account ${relayerWalletAddress} was succesfully added as a gateway relayer`, hre.fhevm.logOptions);
   } else {
     throw new HardhatFhevmError("Add gateway relayer failed.");
   }
 });
 
 subtask(TASK_FHEVM_DEPLOY, async (_taskArgs, hre) => {
-  logTrace("deploy fhevm contracts", hre.fhevm.logOptions());
+  logTrace("deploy fhevm contracts", hre.fhevm.logOptions);
   // Nonce == 0
   const ACL = await hre.run(TASK_FHEVM_DEPLOY_ACL_CONTRACT);
   // Nonce == 1
@@ -563,14 +567,14 @@ subtask(TASK_FHEVM_DEPLOY, async (_taskArgs, hre) => {
  */
 subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
   if (!(await hre.fhevm.dockerServices().isDockerRunning())) {
-    logBox("Docker is not running (or is in resource saving mode). Please start docker first.", hre.fhevm.logOptions());
+    logBox("Docker is not running (or is in resource saving mode). Please start docker first.", hre.fhevm.logOptions);
     throw new HardhatFhevmError("Docker is not running (or is in resource saving mode). Please start docker first.");
   }
 
   if (!hre.fhevm.isLocal()) {
     logBox(
       `Call 'npx hardhat --network ${LOCAL_FHEVM_NETWORK_NAME} ${SCOPE_FHEVM} ${SCOPE_FHEVM_TASK_START}' to start the local fhevm node`,
-      hre.fhevm.logOptions(),
+      hre.fhevm.logOptions,
     );
     throw new HardhatFhevmError(
       `Cannot start a fhevm local node on network '${hre.network.name}', use the '--network fhevm' instead or set 'defaultNetwork:"${LOCAL_FHEVM_NETWORK_NAME}"' in your hardhat config file.`,
@@ -596,16 +600,16 @@ subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
 
   if (fhevmIsRunning) {
     if (keysNotInstalled) {
-      logTrace("Restart local fhevm node needed because keys are not installed.", hre.fhevm.logOptions());
+      logTrace("Restart local fhevm node needed because keys are not installed.", hre.fhevm.logOptions);
     }
   }
 
   if (cleanOrBuild.clean) {
-    logTrace("rebuild needed!", hre.fhevm.logOptions());
+    logTrace("rebuild needed!", hre.fhevm.logOptions);
     await hre.run(TASK_CLEAN);
   }
 
-  logBox("Starting local fhevm node... it might take some time.", hre.fhevm.logOptions());
+  logBox("Starting local fhevm node... it might take some time.", hre.fhevm.logOptions);
 
   await hre.run(TASK_FHEVM_STOP);
   await hre.run(TASK_FHEVM_COMPILE);
@@ -621,7 +625,7 @@ subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
   logStartReport(deployedContracts, hre);
 
   if (cleanOrBuild.build) {
-    logTrace("compile contracts", hre.fhevm.logOptions());
+    logTrace("compile contracts", hre.fhevm.logOptions);
     await hre.run(TASK_COMPILE, { quiet: true });
   }
 
@@ -634,7 +638,7 @@ subtask(TASK_FHEVM_STOP, async (_taskArgs, hre) => {
 });
 
 subtask(TASK_FHEVM_DEPLOY_EXTRA, async (_taskArgs, hre) => {
-  logTrace("compile gateway bug fix...", hre.fhevm.logOptions());
+  logTrace("compile gateway bug fix...", hre.fhevm.logOptions);
 
   const dir = ____writeGatewayFirstRequestBugAvoider(hre);
   await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
@@ -645,7 +649,7 @@ subtask(TASK_FHEVM_DEPLOY_EXTRA, async (_taskArgs, hre) => {
    * the function '____deployAndRunGatewayFirstRequestBugAvoider' is temporary
    * should be removed when the gateway bug will be fixed
    */
-  logTrace("deploy+run gateway bug fix...", hre.fhevm.logOptions());
+  logTrace("deploy+run gateway bug fix...", hre.fhevm.logOptions);
 
   await ____deployAndRunGatewayFirstRequestBugAvoider(hre);
 });
@@ -663,7 +667,7 @@ subtask(TASK_FHEVM_START_MOCK, async (_taskArgs, hre) => {
   await hre.run(TASK_FHEVM_ACCOUNTS_SET_BALANCE);
   const deployedContracts = await hre.run(TASK_FHEVM_DEPLOY);
 
-  logTrace("compile contracts", hre.fhevm.logOptions());
+  logTrace("compile contracts", hre.fhevm.logOptions);
   // Make sure we are compiling the user contracts
   assert(hre.config.paths.sources === orig_sources_path);
   await hre.run(TASK_COMPILE, { quiet: true });
@@ -672,7 +676,7 @@ subtask(TASK_FHEVM_START_MOCK, async (_taskArgs, hre) => {
 });
 
 subtask(TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE, async (_taskArgs, hre) => {
-  logTrace("compile fhevm mock coprocessor contract", hre.fhevm.logOptions());
+  logTrace("compile fhevm mock coprocessor contract", hre.fhevm.logOptions);
 
   // Compile MockedPrecompile.sol
   const dir = writeMockedPrecompile(hre);
@@ -684,41 +688,41 @@ subtask(TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE, async (_taskArgs, hre) => {
   const bytecode = NeverRevert.deployedBytecode;
   await hre.network.provider.send("hardhat_setCode", [targetAddress, bytecode]);
 
-  logDim(`Code of Mocked Pre-compile set at address: ${targetAddress}`, hre.fhevm.logOptions());
+  logDim(`Code of Mocked Pre-compile set at address: ${targetAddress}`, hre.fhevm.logOptions);
 });
 
 function logStartReport(deployedContracts: Record<string, string>, hre: HardhatRuntimeEnvironment) {
-  if (hre.fhevm.logOptions().quiet) {
+  if (hre.fhevm.logOptions.quiet) {
     return;
   }
 
   const accounts = hre.config.networks.fhevm.accounts;
   const col = 25;
 
-  const logOptions: LogOptions = hre.fhevm.logOptions();
+  const lo: LogOptions = hre.fhevm.logOptions;
 
   const v: FhevmContractName[] = ["ACL", "TFHEExecutor", "KMSVerifier", "GatewayContract"];
   v.forEach((name: FhevmContractName) => {
     const colName = `${name} owner:`.padEnd(col, " ");
     const colAddr = getFhevmContractOwnerSigner(name, hre).address;
-    logDimWithGreenPrefix(colName, colAddr, logOptions);
+    logDimWithGreenPrefix(colName, colAddr, lo);
   });
 
   logDimWithGreenPrefix(
     "GatewayContract deployer:",
     `${getGatewayDeployerWallet(hre).address} (index=${accounts.GatewayContractDeployer}`,
-    logOptions,
+    lo,
   );
   logDimWithGreenPrefix(
     "GatewayContract relayer: ",
     `${hre.fhevm.gatewayRelayerAddress()} (private key=${accounts.GatewayRelayerPrivateKey})`,
-    logOptions,
+    lo,
   );
 
   v.forEach((name: FhevmContractName) => {
     const colName = `${name} address:`.padEnd(col, " ");
     const colAddr = deployedContracts[name];
-    logDimWithGreenPrefix(colName, colAddr, logOptions);
+    logDimWithGreenPrefix(colName, colAddr, lo);
   });
 }
 
@@ -732,41 +736,61 @@ function logStartReport(deployedContracts: Record<string, string>, hre: HardhatR
 
 const fhevmScope = scope(SCOPE_FHEVM, "Manage a fhevm node");
 
-fhevmScope.task(SCOPE_FHEVM_TASK_START, async (_taskArgs, hre) => {
-  hre.fhevm.__enterForceLocal();
+fhevmScope
+  .task(SCOPE_FHEVM_TASK_START)
+  .addFlag("quiet", undefined)
+  .addFlag("stderr", undefined)
+  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
+    hre.fhevm.logOptions = { quiet, stderr };
 
-  // returns true if started, false if already running
-  const started = await hre.run(TASK_FHEVM_START);
+    hre.fhevm.__enterForceLocal();
 
-  hre.fhevm.__exitForceLocal();
+    // returns true if started, false if already running
+    const started = await hre.run(TASK_FHEVM_START);
 
-  if (!started) {
-    logTrace("fhevm already running.", hre.fhevm.logOptions());
-  }
-});
+    hre.fhevm.__exitForceLocal();
 
-fhevmScope.task(SCOPE_FHEVM_TASK_STOP, async (_taskArgs, hre) => {
-  hre.fhevm.__enterForceLocal();
+    if (!started) {
+      logTrace("fhevm already running.", hre.fhevm.logOptions);
+    }
+  });
 
-  await hre.run(TASK_FHEVM_STOP);
+fhevmScope
+  .task(SCOPE_FHEVM_TASK_STOP)
+  .addFlag("quiet", undefined)
+  .addFlag("stderr", undefined)
+  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
+    hre.fhevm.logOptions = { quiet, stderr };
 
-  hre.fhevm.__exitForceLocal();
-});
+    hre.fhevm.__enterForceLocal();
 
-fhevmScope.task(SCOPE_FHEVM_TASK_RESTART, async (_taskArgs, hre) => {
-  hre.fhevm.__enterForceLocal();
+    await hre.run(TASK_FHEVM_STOP);
 
-  await hre.run(TASK_FHEVM_STOP);
-  await hre.run(TASK_FHEVM_START);
+    hre.fhevm.__exitForceLocal();
+  });
 
-  hre.fhevm.__exitForceLocal();
-});
+fhevmScope
+  .task(SCOPE_FHEVM_TASK_RESTART)
+  .addFlag("quiet", undefined)
+  .addFlag("stderr", undefined)
+  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
+    hre.fhevm.__enterForceLocal();
 
-fhevmScope.task(SCOPE_FHEVM_TASK_CLEAN, async (_taskArgs, hre) => {
-  await hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_STOP });
-  logTrace(`remove directory: ${hre.config.paths.fhevm}`, hre.fhevm.logOptions());
-  await rimraf(hre.config.paths.fhevm);
-});
+    await hre.run(TASK_FHEVM_STOP, { quiet, stderr });
+    await hre.run(TASK_FHEVM_START, { quiet, stderr });
+
+    hre.fhevm.__exitForceLocal();
+  });
+
+fhevmScope
+  .task(SCOPE_FHEVM_TASK_CLEAN)
+  .addFlag("quiet", undefined)
+  .addFlag("stderr", undefined)
+  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
+    await hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_STOP }, { quiet, stderr });
+    logTrace(`remove directory: ${hre.config.paths.fhevm}`, hre.fhevm.logOptions);
+    await rimraf(hre.config.paths.fhevm);
+  });
 
 ////////////////////////////////////////////////////////////////////////////////
 // Compile
@@ -786,18 +810,19 @@ task(TASK_COMPILE, async (_taskArgs, hre, runSuper) => {
 // Test
 ////////////////////////////////////////////////////////////////////////////////
 
-subtask(TASK_TEST_SETUP_TEST_ENVIRONMENT, async (_taskArgs, hre, runSuper) => {
+subtask(TASK_TEST_SETUP_TEST_ENVIRONMENT, async (_taskArgs, _hre, runSuper) => {
   return runSuper();
 });
 
-task(TASK_TEST, async (taskArgs, hre, runSuper) => {
-  await hre.run(TASK_FHEVM_SETUP, { quiet: false });
+task(TASK_TEST, async (_taskArgs, hre, runSuper) => {
+  await hre.run(TASK_FHEVM_SETUP, { quiet: false, stderr: false });
   return runSuper();
 });
 
 subtask(TASK_FHEVM_SETUP)
-  .addParam("quiet", undefined, undefined, types.boolean)
-  .setAction(async ({ quiet }: { quiet: boolean }, hre) => {
+  .addFlag("quiet", undefined)
+  .addFlag("stderr", undefined)
+  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
     if (hre.fhevm.initialized) {
       return;
     }
@@ -805,7 +830,7 @@ subtask(TASK_FHEVM_SETUP)
       return;
     }
 
-    hre.fhevm.setQuiet(quiet);
+    hre.fhevm.logOptions = { quiet, stderr };
 
     if (!(await isDeployed(hre.ethers.provider, hre.fhevm.ACLAddress()))) {
       if (hre.fhevm.runtimeType() === FhevmRuntimeEnvironmentType.Mock) {
