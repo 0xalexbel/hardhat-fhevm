@@ -405,15 +405,15 @@ function _restoreOverridedSolFile(paths: ProjectPathsConfig) {
   const src = path.join(paths.root, "node_modules", file_save);
   const dst = path.join(paths.root, "node_modules", file);
 
-  if (!fs.existsSync(src)) {
-    throw new HardhatFhevmError(`File ${src} does not exist. Cannot restore original file.`);
+  // if TFHEExecutor.sol.orig exists
+  // rm TFHEExecutor.sol
+  // cp TFHEExecutor.sol.orig TFHEExecutor.sol
+  if (fs.existsSync(src)) {
+    if (fs.existsSync(dst)) {
+      fs.rmSync(dst);
+    }
+    fs.copyFileSync(src, dst);
   }
-
-  if (fs.existsSync(dst)) {
-    fs.rmSync(dst);
-  }
-
-  fs.copyFileSync(src, dst);
 }
 
 function _writeOverridesSolFile(paths: ProjectPathsConfig) {
