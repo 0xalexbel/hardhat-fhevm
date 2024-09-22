@@ -3,12 +3,14 @@ import assert from "assert";
 import { ethers } from "ethers";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-import { getGatewayContract } from "./contracts";
-import { currentTime } from "./utils";
-import { HardhatFhevmError, logBox, logDim, LogOptions } from "./error";
-import { waitNBlocks } from "./wait";
+import { currentTime } from "../utils";
+import { HardhatFhevmError } from "../error";
+import { logBox, logDim, LogOptions } from "../log";
 import { RequestIDDB } from "./RequestIDDB";
 import { HardhatFhevmDecryption } from "../types";
+import { HardhatFhevmRuntimeEnvironmentType } from "./HardhatFhevmRuntimeEnvironment";
+import { getUserPackageNodeModulesDir, zamaGetContrat } from "./zamaContracts";
+import { ZamaDev } from "../constants";
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -65,8 +67,11 @@ export abstract class ResultCallbackProcessor {
   }
 
   async init() {
+    const contractsRootDir = getUserPackageNodeModulesDir(this.hre.config);
+    const provider = this.hre.ethers.provider;
+
     // Must have been compiled first!
-    this.gatewayContract = await getGatewayContract(this.hre);
+    this.gatewayContract = await zamaGetContrat("GatewayContract", contractsRootDir, ZamaDev, provider, this.hre);
     this.gatewayContractAddress = await this.gatewayContract.getAddress();
     this._nextBlockNumberToPoll = await this.getBlockNumber();
 
@@ -82,7 +87,7 @@ export abstract class ResultCallbackProcessor {
   }
 
   protected tryRevertToBlockNumber(blockNum: number) {
-    if (!this.hre.fhevm.isMock()) {
+    if (this.hre.fhevm.runtimeType !== HardhatFhevmRuntimeEnvironmentType.Mock) {
       throw new HardhatFhevmError(`Received a past block number ${blockNum}. Revert is only supported in mock mode.`);
     }
 
@@ -117,7 +122,8 @@ export abstract class ResultCallbackProcessor {
       }
 
       this.logDim(`[Block:${currentBlockNumber}] still ${n_pending} pending request ids. Wait one block needed.`);
-      await waitNBlocks(1, this.hre);
+      //await waitNBlocks(1, this.hre);
+      await this.hre.fhevm.waitNBlocks(1);
 
       // For debug purpose
       const nextBlockNumber = await this.getBlockNumber();
@@ -139,11 +145,11 @@ export abstract class ResultCallbackProcessor {
   }
 
   protected provider(): ethers.Provider {
-    return this.hre.fhevm.provider();
+    return this.hre.ethers.provider;
   }
 
   protected async getBlockNumber(): Promise<number> {
-    return this.hre.fhevm.provider().getBlockNumber();
+    return this.provider().getBlockNumber();
   }
 
   private async _pollBlocks(
@@ -227,7 +233,8 @@ export abstract class ResultCallbackProcessor {
       await this.tryDecrypt(pendingRequestIDs);
 
       // Wait 1 block before next poll
-      await waitNBlocks(1, this.hre);
+      //await waitNBlocks(1, this.hre);
+      await this.hre.fhevm.waitNBlocks(1);
 
       fromBlock = toBlock + 1;
       toBlock = await this.getBlockNumber();

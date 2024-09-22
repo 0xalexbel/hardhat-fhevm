@@ -1,18 +1,19 @@
 import assert from "assert";
-import { ethers } from "ethers";
+import { ethers as EthersT } from "ethers";
 import { ResultCallbackProcessor, EventDecryptionEvent } from "../common/ResultCallbackProcessor";
 import { FhevmClearTextSolidityType, getHandleFhevmType } from "../common/handle";
 import { MockFhevmRuntimeEnvironment } from "./MockFhevmRuntimeEnvironment";
-import { FhevmRuntimeEnvironmentType } from "../common/HardhatFhevmRuntimeEnvironment";
-import { HardhatFhevmError } from "../common/error";
-import { getMockACL } from "../common/contracts";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { MapID } from "../common/RequestIDDB";
+import { getUserPackageNodeModulesDir, zamaGetContrat } from "../common/zamaContracts";
+import { HardhatFhevmRuntimeEnvironmentType } from "../common/HardhatFhevmRuntimeEnvironment";
+import { HardhatFhevmError } from "../error";
+import { ZamaDev } from "../constants";
 
 ///////////////////////////////////////////////////////////////////////////////
 
 export class MockResultCallbackProcessor extends ResultCallbackProcessor {
-  private acl: ethers.Contract | undefined; //ACL | undefined;
+  private acl: EthersT.Contract | undefined; //ACL | undefined;
   private mockTriggeredRequestIDs: MapID<EventDecryptionEvent>;
 
   constructor(hre: HardhatRuntimeEnvironment & { __SOLIDITY_COVERAGE_RUNNING?: boolean }) {
@@ -22,12 +23,15 @@ export class MockResultCallbackProcessor extends ResultCallbackProcessor {
 
   override async init() {
     await super.init();
-    this.acl = await getMockACL(this.hre);
-    assert(!this.hre.fhevm.isConfliting());
+
+    const contractsRootDir = getUserPackageNodeModulesDir(this.hre.config);
+    const provider = this.hre.ethers.provider;
+
+    this.acl = await zamaGetContrat("ACL", contractsRootDir, ZamaDev, provider, this.hre);
   }
 
   private mockRuntime(): MockFhevmRuntimeEnvironment {
-    if (this.hre.fhevm.runtimeType() === FhevmRuntimeEnvironmentType.Mock) {
+    if (this.hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Mock) {
       assert(this.hre.fhevm instanceof MockFhevmRuntimeEnvironment);
       return this.hre.fhevm;
     }
@@ -52,25 +56,51 @@ export class MockResultCallbackProcessor extends ResultCallbackProcessor {
 
   private async _mockTriggerEventDecryption(eventDecryption: EventDecryptionEvent) {
     // in mocked mode, we trigger the decryption fulfillment manually
-
-    await this.mockRuntime().waitForCoprocessing();
+    const acl = this.acl;
+    if (!acl) {
+      throw new HardhatFhevmError(`MockResultCallbackProcessor has not been initialized`);
+    }
+    const gatewayContract = this.gatewayContract?.connect(this.relayerWallet) as EthersT.Contract;
+    if (!gatewayContract) {
+      throw new HardhatFhevmError(`MockResultCallbackProcessor has not been initialized`);
+    }
 
     // first check tat all handles are allowed for decryption
     const isAllowedForDec = await Promise.all(
-      eventDecryption.handles.map(async (handle) => this.acl!.allowedForDecryption(handle)),
+      eventDecryption.handles.map(async (handle) => acl.allowedForDecryption(handle)),
     );
 
     if (!isAllowedForDec.every(Boolean)) {
-      throw new Error("Some handle is not authorized for decryption");
+      throw new HardhatFhevmError("Some handle is not authorized for decryption");
     }
 
     // Build "fulfillRequest" arguments
     const typesList = eventDecryption.handles.map((handle) => getHandleFhevmType(handle));
     const types = typesList.map((num) => FhevmClearTextSolidityType[num]);
 
-    const values = await Promise.all(
-      eventDecryption.handles.map(async (handle) => BigInt(await this.mockRuntime().queryClearText(handle))),
-    );
+    const values = await this.mockRuntime().batchDecryptBigInt(eventDecryption.handles.map((v) => EthersT.toBigInt(v)));
+
+    // await this.mockRuntime().waitForCoprocessing();
+    // const values = await Promise.all(
+    //   eventDecryption.handles.map(async (handle) => BigInt(await this.mockRuntime().queryClearText(handle))),
+    // );
+
+    // // first check tat all handles are allowed for decryption
+    // const isAllowedForDec = await Promise.all(
+    //   eventDecryption.handles.map(async (handle) => acl.allowedForDecryption(handle)),
+    // );
+
+    // if (!isAllowedForDec.every(Boolean)) {
+    //   throw new HardhatFhevmError("Some handle is not authorized for decryption");
+    // }
+
+    // // Build "fulfillRequest" arguments
+    // const typesList = eventDecryption.handles.map((handle) => getHandleFhevmType(handle));
+    // const types = typesList.map((num) => FhevmClearTextSolidityType[num]);
+
+    // const values = await Promise.all(
+    //   eventDecryption.handles.map(async (handle) => BigInt(await this.mockRuntime().queryClearText(handle))),
+    // );
     const valuesFormatted = values.map((value, index) =>
       types[index] === "address" ? "0x" + value.toString(16).padStart(40, "0") : value,
     );
@@ -87,16 +117,9 @@ export class MockResultCallbackProcessor extends ResultCallbackProcessor {
     this.logDim(`Mock calling: gatewayContract.fulfillRequest(${eventDecryption.requestID})...`);
 
     // Call "fulfillRequest" manually
-    /* eslint-disable @typescript-eslint/ban-ts-comment */
-    //@ts-ignore
-    const tx = await this.gatewayContract!.connect(this.relayerWallet).fulfillRequest(
-      eventDecryption.requestID,
-      calldata,
-      [],
-      {
-        value: eventDecryption.msgValue,
-      },
-    );
+    const tx = await gatewayContract.fulfillRequest(eventDecryption.requestID, calldata, [], {
+      value: eventDecryption.msgValue,
+    });
     await tx.wait();
 
     this.logDim(`Mock call: gatewayContract.fulfillRequest(${eventDecryption.requestID}) completed.`);

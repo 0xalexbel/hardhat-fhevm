@@ -1,18 +1,18 @@
 import assert from "assert";
 import { toBufferBE } from "bigint-buffer";
 import crypto from "crypto";
-import { ethers } from "ethers";
+import { ethers as EthersT } from "ethers";
 import fhevmjs_node from "fhevmjs/node";
 import { Keccak } from "sha3";
 
-import { getMockACL } from "../common/contracts";
 import { FhevmNumBitsType, FhevmType } from "../common/handle";
-import { bytesToBigInt } from "../common/utils";
+import { bytesToBigInt } from "../utils";
 import { MockFhevmRuntimeEnvironment } from "./MockFhevmRuntimeEnvironment";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
+import { HardhatFhevmRuntimeEnvironmentType } from "../common/HardhatFhevmRuntimeEnvironment";
 
 const createInstance = async (hre: HardhatRuntimeEnvironment) => {
-  assert(hre.fhevm.isMock());
+  assert(hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Mock);
 
   const instance = await fhevmjs_node.createInstance({
     chainId: hre.network.config.chainId,
@@ -23,51 +23,68 @@ const createInstance = async (hre: HardhatRuntimeEnvironment) => {
   return instance;
 };
 
+// len = numBytes + 32
 function createUintToUint8ArrayFunction(numBits: number) {
   const numBytes = Math.ceil(numBits / 8);
   return function (uint: number | bigint | boolean) {
+    // uint64 numBytes = 8
+    // 1337 = 0x539 = 0x00_00_00_00_00_00_00_00_05_39
     const buffer = toBufferBE(BigInt(uint), numBytes);
+    //0x0500000000000005396f8139e3c83d6a600ca15172f4fe64582a21898d4e8d858daf676611dc277abc000000000000000000000000
+    //0x05_<be uint64 8 bytes>_6f8139e3c83d6a60_0ca15172f4fe6458_2a21898d4e8d858d_af676611dc277abc_[000000000000000000000000]
+    //0x<type euint64 = 5>_<be uint64 8 bytes>_<rand 32 bytes>_[000000000000000000000000]
+    //0000000000000539
 
     // concatenate 32 random bytes at the end of buffer to simulate encryption noise
     const randomBytes = crypto.randomBytes(32);
     const combinedBuffer = Buffer.concat([buffer, randomBytes]);
+    assert(combinedBuffer.length === 32 + numBytes);
 
     let byteBuffer;
     let totalBuffer;
     const padBuffer = numBytes <= 20 ? Buffer.alloc(20 - numBytes) : Buffer.alloc(0); // to fit it in an E160List
+    assert(padBuffer.length + numBytes === 20 || padBuffer.length + numBytes === 256);
 
     switch (numBits) {
       case 1:
         byteBuffer = Buffer.from([FhevmType.ebool]);
         totalBuffer = Buffer.concat([byteBuffer, combinedBuffer, padBuffer]);
+        assert(totalBuffer.length === 52 + 1 || totalBuffer.length === 1 + 32 + 256);
         break;
       case 4:
         byteBuffer = Buffer.from([FhevmType.euint4]);
         totalBuffer = Buffer.concat([byteBuffer, combinedBuffer, padBuffer]);
+        assert(totalBuffer.length === 52 + 1);
         break;
       case 8:
         byteBuffer = Buffer.from([FhevmType.euint8]);
         totalBuffer = Buffer.concat([byteBuffer, combinedBuffer, padBuffer]);
+        assert(totalBuffer.length === 52 + 1);
         break;
       case 16:
         byteBuffer = Buffer.from([FhevmType.euint16]);
         totalBuffer = Buffer.concat([byteBuffer, combinedBuffer, padBuffer]);
+        assert(totalBuffer.length === 52 + 1);
         break;
       case 32:
         byteBuffer = Buffer.from([FhevmType.euint32]);
         totalBuffer = Buffer.concat([byteBuffer, combinedBuffer, padBuffer]);
+        assert(totalBuffer.length === 52 + 1);
         break;
       case 64:
         byteBuffer = Buffer.from([FhevmType.euint64]);
         totalBuffer = Buffer.concat([byteBuffer, combinedBuffer, padBuffer]);
+        assert(totalBuffer.length === 52 + 1);
         break;
       case 160:
         byteBuffer = Buffer.from([FhevmType.eaddress]);
         totalBuffer = Buffer.concat([byteBuffer, combinedBuffer]);
+        assert(totalBuffer.length === 52 + 1);
         break;
       case 2048:
         byteBuffer = Buffer.from([FhevmType.ebytes256]);
         totalBuffer = Buffer.concat([byteBuffer, combinedBuffer]);
+        assert(totalBuffer.length === 1 + 32 + 256);
         break;
       default:
         throw Error("Non-supported numBits");
@@ -99,33 +116,36 @@ const reencryptRequestMocked =
     const value = {
       publicKey: `0x${publicKey}`,
     };
-    const signerAddress = ethers.verifyTypedData(domain, types, value, `0x${signature}`);
-    const normalizedSignerAddress = ethers.getAddress(signerAddress);
-    const normalizedUserAddress = ethers.getAddress(userAddress);
+    const signerAddress = EthersT.verifyTypedData(domain, types, value, `0x${signature}`);
+    const normalizedSignerAddress = EthersT.getAddress(signerAddress);
+    const normalizedUserAddress = EthersT.getAddress(userAddress);
     if (normalizedSignerAddress !== normalizedUserAddress) {
       throw new Error("Invalid EIP-712 signature!");
     }
 
-    // ACL checking
-    const acl = await getMockACL(hre);
-    const userAllowed = await acl.persistAllowed(handle, userAddress);
-    const contractAllowed = await acl.persistAllowed(handle, contractAddress);
-    const isAllowed = userAllowed && contractAllowed;
-    if (!isAllowed) {
-      throw new Error("User is not authorized to reencrypt this handle!");
-    }
+    // const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
+    // const provider = hre.ethers.provider;
 
-    const fhevm = MockFhevmRuntimeEnvironment.get(hre)!;
-    await fhevm.waitForCoprocessing();
-    return await fhevm.queryClearText(handle);
+    // ACL checking
+    // const acl = await zamaGetContrat("ACL", contractsRootDir, ZamaDev, provider, hre);
+    // const userAllowed = await acl.persistAllowed(handle, userAddress);
+    // const contractAllowed = await acl.persistAllowed(handle, contractAddress);
+    // const isAllowed = userAllowed && contractAllowed;
+    // if (!isAllowed) {
+    //   throw new Error("User is not authorized to reencrypt this handle!");
+    // }
+
+    const fhevm = MockFhevmRuntimeEnvironment.cast(hre.fhevm);
+    const clearBn = await fhevm.decryptBigInt(handle, contractAddress, userAddress);
+    return clearBn;
   };
 
 const createEncryptedInputMocked = (contractAddress: string, callerAddress: string) => {
-  if (!ethers.isAddress(contractAddress)) {
+  if (!EthersT.isAddress(contractAddress)) {
     throw new Error("Contract address is not a valid address.");
   }
 
-  if (!ethers.isAddress(callerAddress)) {
+  if (!EthersT.isAddress(callerAddress)) {
     throw new Error("User address is not a valid address.");
   }
 
@@ -179,7 +199,7 @@ const createEncryptedInputMocked = (contractAddress: string, callerAddress: stri
       return this;
     },
     addAddress(value: string) {
-      if (!ethers.isAddress(value)) {
+      if (!EthersT.isAddress(value)) {
         throw new Error("The value must be a valid address.");
       }
       values.push(BigInt(value));
@@ -214,6 +234,7 @@ const createEncryptedInputMocked = (contractAddress: string, callerAddress: stri
           bits.map((v, i) => {
             encrypted = Buffer.concat([encrypted, createUintToUint8ArrayFunction(v)(values[i])]);
           });
+          assert(encrypted.length === 53 * bits.length);
           break;
         }
         case 2048: {

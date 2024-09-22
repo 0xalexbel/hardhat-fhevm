@@ -2,7 +2,7 @@ import type childProcess from "child_process";
 import { exec as execCallback } from "child_process";
 import { promisify } from "util";
 import spawn from "cross-spawn";
-import { HardhatFhevmError } from "./common/error";
+import { HardhatFhevmError } from "./error";
 import path from "path";
 
 const exec = promisify(execCallback);

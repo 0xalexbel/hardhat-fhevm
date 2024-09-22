@@ -4,3 +4,4 @@ export const SCOPE_FHEVM_TASK_START = "start";
 export const SCOPE_FHEVM_TASK_STOP = "stop";
 export const SCOPE_FHEVM_TASK_RESTART = "restart";
 export const SCOPE_FHEVM_TASK_CLEAN = "clean";
+export const SCOPE_FHEVM_TASK_TEST = "test";

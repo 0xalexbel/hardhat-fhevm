@@ -3,7 +3,6 @@ import { ethers } from "ethers";
 import { log2 } from "extra-bigint";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 
-import { getUserPackageNodeModulesDir, getTFHEExecutorArtifact, readTFHEExecutorAddress } from "../common/contracts";
 import {
   FhevmOperator,
   FhevmType,
@@ -12,8 +11,10 @@ import {
   encodeComputedFhevmHandle,
   getHandleFhevmType,
 } from "../common/handle";
-import { getRandomBigInt, hex64ToHex40 } from "../common/utils";
+import { getRandomBigInt, hex64ToHex40 } from "../utils";
 import { HandleDB } from "./HandleDB";
+import { zamaArtifactSync, zamaComputeContractAddresses } from "../common/zamaContracts";
+import { ZamaDev } from "../constants";
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -35,15 +36,13 @@ export class MockFhevmCoProcessor {
 
   constructor(hre: HardhatRuntimeEnvironment & { __SOLIDITY_COVERAGE_RUNNING?: boolean }) {
     this.hre = hre;
-    if (hre.network.name !== "hardhat") {
-      throw new Error("HHFhevmCoProcessor only runs on hardhat network");
-    }
     this.lastBlockSnapshot = 0;
     this.lastCounterRandom = 0;
     this.firstBlockListening = 0;
     this.counterRandom = 0;
     this.handle_db = new HandleDB();
-    this.tfheExecutorAddress = readTFHEExecutorAddress(getUserPackageNodeModulesDir(this.hre.config));
+    this.tfheExecutorAddress = zamaComputeContractAddresses(ZamaDev).TFHEExecutor;
+    //readFhevmContractAddress("TFHEExecutor", getUserPackageNodeModulesDir(this.hre.config));
   }
 
   public async init() {
@@ -52,7 +51,7 @@ export class MockFhevmCoProcessor {
 
   private TFHEExecutorInterface() {
     if (!this.tfheExecutorInterface) {
-      this.tfheExecutorInterface = new ethers.Interface(getTFHEExecutorArtifact(this.hre).abi);
+      this.tfheExecutorInterface = new ethers.Interface(zamaArtifactSync("TFHEExecutor", ZamaDev, this.hre).abi);
     }
     return this.tfheExecutorInterface;
   }
@@ -77,12 +76,13 @@ export class MockFhevmCoProcessor {
   }
 
   public async wait(): Promise<void> {
+    const eth_provider = this.hre.network.provider;
     const pastTxHashes = await this.getAllPastTransactionHashes();
     for (const txHash of pastTxHashes) {
       const hash = txHash[0];
       //const blockNumber = txHash[1];
 
-      const trace = await this.hre.fhevm.hardhatProvider().send("debug_traceTransaction", [hash]);
+      const trace = await eth_provider.send("debug_traceTransaction", [hash]);
       if (!trace.failed) {
         /*
 async function processLogs(trace, validSubcallsIndexes) {
@@ -484,7 +484,8 @@ async function processLogs(trace, validSubcallsIndexes) {
   }
 
   private async updateLastBlockSnapshot() {
-    const res = await this.hre.fhevm.hardhatProvider().send("get_lastBlockSnapshot");
+    const eth_provider = this.hre.network.provider;
+    const res = await eth_provider.send("get_lastBlockSnapshot");
     assert(typeof res[0] === "number");
     assert(typeof res[1] === "number");
     this.lastBlockSnapshot = res[0];
@@ -492,7 +493,8 @@ async function processLogs(trace, validSubcallsIndexes) {
   }
 
   private async getAllPastTransactionHashes() {
-    const provider = this.hre.fhevm.hardhatProvider();
+    const eth_provider = this.hre.network.provider;
+    const provider = this.hre.ethers.provider;
     const latestBlockNumber = await provider.getBlockNumber();
     const txHashes: [string, number][] = [];
 
@@ -526,7 +528,7 @@ async function processLogs(trace, validSubcallsIndexes) {
 
     if (this.hre.__SOLIDITY_COVERAGE_RUNNING !== true) {
       // evm_snapshot is not supported in coverage mode
-      await provider.send("set_lastBlockSnapshot", [this.firstBlockListening]);
+      await eth_provider.send("set_lastBlockSnapshot", [this.firstBlockListening]);
     }
     return txHashes;
   }

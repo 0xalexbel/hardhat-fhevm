@@ -84,14 +84,15 @@ services:
     image: ghcr.io/zama-ai/ethermint-dev-node:v0.5.0-2
     ports:
       - "26656-26657:26656-26657"
-      - "8545-8546:8545-8546"
+      - "{{httpPort}}:8545"
+      - "{{wsPort}}:8546"
     volumes:
       - ../keys/network-fhe-keys:/network-fhe-keys:Z
       - ./setup.sh:/config/setup.sh:Z
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: 'curl -s -H "Connection: Upgrade" -H "Upgrade: websocket"  http://localhost:8546'
+      test: 'curl -s -H "Connection: Upgrade" -H "Upgrade: websocket"  http://localhost:{{wsPort}}'
       interval: 5s
       timeout: 3s
       retries: 5
