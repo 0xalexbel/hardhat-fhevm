@@ -10,7 +10,7 @@ import {
 import { useEnvironment } from "./helpers";
 
 describe("local tasks tests", function () {
-  useEnvironment("local-fhevm-project");
+  useEnvironment("local-fhevm-empty");
 
   it("LocalStartStop1: TASK_FHEVM_START", async function () {
     await this.hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_START });
