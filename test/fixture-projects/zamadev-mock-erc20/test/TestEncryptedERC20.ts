@@ -8,6 +8,7 @@ describe("TestEncryptedERC20", function () {
   let signers: Signers;
   let contractAddress: string;
   let erc20: Contract;
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   let instances: HardhatFhevmInstances;
 
   before(async function () {

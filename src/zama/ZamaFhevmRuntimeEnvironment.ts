@@ -111,6 +111,7 @@ export class ZamaFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     return false;
   }
 
+  /* eslint-disable @typescript-eslint/no-unused-vars */
   public batchSetBalance(_addresses: Array<string>, _amount: string): Promise<void> {
     throw new HardhatFhevmError("Method not supported.");
   }
