@@ -1,8 +1,7 @@
 import "hardhat/types/config";
 import "hardhat/types/runtime";
-import type { FhevmHttpNetworkConfig } from "./types";
-
-import { HardhatFhevmRuntimeEnvironment } from "./common/HardhatFhevmRuntimeEnvironment";
+import type { FhevmNodeConfig, FhevmNodeUserConfig } from "./types";
+import type { HardhatFhevmRuntimeEnvironment } from "./common/HardhatFhevmRuntimeEnvironment";
 
 declare module "hardhat/types/config" {
   export interface ProjectPathsUserConfig {
@@ -14,16 +13,32 @@ declare module "hardhat/types/config" {
     fhevmContracts: string;
   }
 
+  export interface HardhatConfig {
+    fhevmNode: FhevmNodeConfig;
+  }
+
+  export interface HardhatUserConfig {
+    fhevmNode?: FhevmNodeUserConfig;
+  }
+
   export interface HardhatNetworkUserConfig {
     mockFhevm?: boolean;
+    useOnChainFhevmMockProcessor?: boolean;
   }
 
   export interface HardhatNetworkConfig {
     mockFhevm: boolean;
+    useOnChainFhevmMockProcessor: boolean;
   }
 
-  export interface NetworksConfig {
-    fhevm: FhevmHttpNetworkConfig;
+  export interface HttpNetworkUserConfig {
+    mockFhevm?: boolean;
+    useOnChainFhevmMockProcessor?: boolean;
+  }
+
+  export interface HttpNetworkConfig {
+    mockFhevm?: boolean;
+    useOnChainFhevmMockProcessor?: boolean;
   }
 }
 

@@ -33,8 +33,8 @@ jobs:
           echo "## Lint results" >> $GITHUB_STEP_SUMMARY
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
-      - name: "Test fhevm in mock mode"
-        run: npm test -- --grep mock
+      - name: "Test"
+        run: npm test
 
       - name: "Add test summary"
         run: |

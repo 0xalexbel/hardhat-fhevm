@@ -1,6 +1,6 @@
 {
   "name": "hardhat-fhevm",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Hardhat Fhevm plugin",
   "repository": "github:0xalexbel/hardhat-fhevm",
   "author": "Alexandre Belhoste",
@@ -19,7 +19,9 @@
   "scripts": {
     "lint": "eslint \"**/*.ts\"",
     "lint:fix": "eslint --fix \"**/*.{js,ts}\"",
-    "test": "mocha --exit --recursive 'test/**/*.test.ts'",
+    "mocha": "mocha --exit --recursive",
+    "test": "mocha --exit --recursive 'test/**/*.ci.test.ts'",
+    "test:local": "mocha --exit --recursive 'test/**/local-fhevm-*.test.ts'",
     "format": "prettier --write \"**/*.{ts,js}\"",
     "build": "tsc",
     "watch": "tsc -w",
@@ -29,6 +31,7 @@
     "dist/src/",
     "dist/types*",
     "src/",
+    "solidity/",
     "docker/",
     "LICENSE",
     "README.md"
@@ -42,7 +45,8 @@
     "rimraf": "^4.1.2",
     "sha3": "^2.1.4",
     "sqlite3": "^5.1.7",
-    "yaml": "^2.5.0"
+    "yaml": "^2.5.0",
+    "fs-extra": "^11.2.0"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.0",

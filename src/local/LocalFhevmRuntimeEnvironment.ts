@@ -1,14 +1,18 @@
-import { HardhatRuntimeEnvironment, HttpNetworkConfig } from "hardhat/types";
+import { ethers as EthersT } from "ethers";
+import { HardhatRuntimeEnvironment, NetworkConfig } from "hardhat/types";
 import {
   HardhatFhevmRuntimeEnvironment,
-  FhevmRuntimeEnvironmentType,
-  HardhatFhevmInstance,
+  HardhatFhevmRuntimeEnvironmentType,
 } from "../common/HardhatFhevmRuntimeEnvironment";
+import { getInstallPrivKeyFile } from "../dirs";
 import { readFileSync } from "fs";
-import { getInstallPrivKeyFile } from "../common/dirs";
 import fhevmjs from "fhevmjs/node";
-import { HardhatFhevmError } from "../common/error";
+import { LocalFhevmInstance } from "./LocalFhevmInstance";
+import { ResultCallbackProcessor } from "../common/ResultCallbackProcessor";
 import { LocalResultCallbackProcessor } from "./LocalResultCallbackProcessor";
+import { DockerServices } from "../common/DockerServices";
+
+////////////////////////////////////////////////////////////////////////////////
 
 interface FhevmjsDecryptor {
   decryptBool: (ciphertext: string) => boolean;
@@ -20,87 +24,112 @@ interface FhevmjsDecryptor {
   decryptAddress: (ciphertext: string) => string;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 export class LocalFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment {
   private _fhevmjs_decryptor: FhevmjsDecryptor | undefined;
+  private _resultprocessor: LocalResultCallbackProcessor | undefined;
 
   constructor(hre: HardhatRuntimeEnvironment) {
-    super(FhevmRuntimeEnvironmentType.Fhe, hre);
+    super(HardhatFhevmRuntimeEnvironmentType.Local, hre);
   }
 
-  public async init(): Promise<void> {
-    // const initialized = this._fhevmjs_decryptor && this._resultprocessor;
-    // if (!initialized) {
-    //   logTrace("initialize fhevm runtime.", this.hre.fhevm.logOptions());
-    // }
-
-    await super.init();
-
-    // Could be called multiple times from the outside world
-    if (!this._fhevmjs_decryptor) {
-      const cks = readFileSync(getInstallPrivKeyFile(this.hre));
-      this._fhevmjs_decryptor = fhevmjs.clientKeyDecryptor(cks);
-    }
-
-    // Could be called multiple times from the outside world
+  protected async resultprocessor(): Promise<ResultCallbackProcessor> {
     if (!this._resultprocessor) {
       this._resultprocessor = new LocalResultCallbackProcessor(this.hre);
       await this._resultprocessor.init();
     }
+    return this._resultprocessor;
   }
 
-  private decryptor() {
-    return this._fhevmjs_decryptor!;
-  }
-
-  public async createInstance(): Promise<LocalHardhatFhevmInstance> {
-    return LocalHardhatFhevmInstance.create(this.hre);
-  }
-
-  private async getCiphertext(handle: bigint): Promise<string> {
-    return this.hre.fhevm.hardhatProvider().call(fhevmjs.getCiphertextCallParams(handle));
-  }
-
-  public override async decryptBool(handle: bigint): Promise<boolean> {
-    return this.decryptor().decryptBool(await this.getCiphertext(handle));
-  }
-
-  public override async decrypt4(handle: bigint): Promise<bigint> {
-    return BigInt(this.decryptor().decrypt4(await this.getCiphertext(handle)));
-  }
-
-  public override async decrypt8(handle: bigint): Promise<bigint> {
-    return BigInt(this.decryptor().decrypt8(await this.getCiphertext(handle)));
-  }
-
-  public override async decrypt16(handle: bigint): Promise<bigint> {
-    return BigInt(this.decryptor().decrypt16(await this.getCiphertext(handle)));
-  }
-
-  public override async decrypt32(handle: bigint): Promise<bigint> {
-    return BigInt(this.decryptor().decrypt32(await this.getCiphertext(handle)));
-  }
-
-  public override async decrypt64(handle: bigint): Promise<bigint> {
-    return this.decryptor().decrypt64(await this.getCiphertext(handle));
-  }
-
-  public override async decryptAddress(handle: bigint): Promise<string> {
-    return this.decryptor().decryptAddress(await this.getCiphertext(handle));
-  }
-}
-
-export class LocalHardhatFhevmInstance extends HardhatFhevmInstance {
-  public static async create(hre: HardhatRuntimeEnvironment): Promise<LocalHardhatFhevmInstance> {
-    if ("url" in hre.network.config) {
-      const http_config = hre.network.config as HttpNetworkConfig;
-      const js_instance = await fhevmjs.createInstance({
-        networkUrl: http_config.url,
-        gatewayUrl: hre.fhevm.dockerServices().gatewayServiceUrl(),
-      });
-      const hh_instance = new LocalHardhatFhevmInstance();
-      hh_instance.innerInstance = js_instance;
-      return hh_instance;
+  private async _decryptor() {
+    if (!this._fhevmjs_decryptor) {
+      const cks = readFileSync(getInstallPrivKeyFile(this.hre.config.paths.fhevm));
+      this._fhevmjs_decryptor = fhevmjs.clientKeyDecryptor(cks);
     }
-    throw new HardhatFhevmError("Unsupported network config");
+    return this._fhevmjs_decryptor;
+  }
+
+  private async _getCiphertext(handle: bigint): Promise<string> {
+    const cipherText = await this.hre.ethers.provider.call(fhevmjs.getCiphertextCallParams(handle));
+    return cipherText;
+  }
+
+  public async createInstance(): Promise<LocalFhevmInstance> {
+    return LocalFhevmInstance.create(this.hre);
+  }
+
+  public async decryptBool(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<boolean> {
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    const d = await this._decryptor();
+    const cipherText = await this._getCiphertext(handle);
+    return d.decryptBool(cipherText);
+  }
+
+  public async decrypt4(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    const d = await this._decryptor();
+    const cipherText = await this._getCiphertext(handle);
+    return BigInt(d.decrypt4(cipherText));
+  }
+
+  public async decrypt8(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    const d = await this._decryptor();
+    const cipherText = await this._getCiphertext(handle);
+    return BigInt(d.decrypt8(cipherText));
+  }
+
+  public async decrypt16(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    const d = await this._decryptor();
+    const cipherText = await this._getCiphertext(handle);
+    return BigInt(d.decrypt16(cipherText));
+  }
+
+  public async decrypt32(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    const d = await this._decryptor();
+    const cipherText = await this._getCiphertext(handle);
+    return BigInt(d.decrypt32(cipherText));
+  }
+
+  public async decrypt64(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    const d = await this._decryptor();
+    const cipherText = await this._getCiphertext(handle);
+    return d.decrypt64(cipherText);
+  }
+
+  public async decryptAddress(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<string> {
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    const d = await this._decryptor();
+    const cipherText = await this._getCiphertext(handle);
+    return d.decryptAddress(cipherText);
+  }
+
+  public async canSetBalance(): Promise<boolean> {
+    return true;
+  }
+
+  public async batchSetBalance(addresses: Array<string>, amount: string): Promise<void> {
+    await this.dockerServices.setBalances(addresses, amount);
+  }
+
+  static isLocalNetwork(networkConfig: NetworkConfig): boolean {
+    if (!("url" in networkConfig)) {
+      return false;
+    }
+    if (networkConfig.chainId !== DockerServices.chainId) {
+      return false;
+    }
+    const u = new URL(networkConfig.url);
+    if (u.hostname !== "localhost") {
+      return false;
+    }
+    if (u.protocol !== "http:") {
+      return false;
+    }
+    return true;
   }
 }

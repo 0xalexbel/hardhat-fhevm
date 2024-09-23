@@ -1,6 +1,6 @@
-import { ethers } from "ethers";
+import { ethers as EthersT } from "ethers";
 
-import { toBeHexNoPrefix } from "./utils";
+import { toBeHexNoPrefix } from "../utils";
 
 export const FHEVM_HANDLE_VERSION = 0;
 
@@ -50,15 +50,17 @@ export const FhevmNumBitsType: Record<number, FhevmType> = {
 };
 
 export const FhevmTypeNumBits: Record<FhevmType, bigint> = {
-  0: 1n, //ebool
-  1: 4n, //euint4
-  2: 8n, //euint8
-  3: 16n, //euint16
-  4: 32n, //euint32
-  5: 64n, //euint64
-  6: 128n, //euint128
-  7: 160n, //eaddress
-  8: 256n, //euint256
+  0: 1n, //ebool 2**1 = 2
+  1: 4n, //euint4 2**4 = 0x10 = 0xF + 1
+  2: 8n, //euint8 2**8 = 0xFF + 1
+  3: 16n, //euint16 2**16 = 0xFFFF + 1
+  4: 32n, //euint32 2**32 = 0xFFFFFFFF + 1
+  5: 64n, //euint64 2**64 = 0xFFFFFFFFFFFFFFFF + 1
+  6: 128n, //euint128 2**64 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF + 1
+  7: 160n, //eaddress         0x000000000000000000000000000000000000005d
+  //                          0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF + 1
+  8: 256n, //euint256 2**256 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF + 1
+  //                           0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000
   9: 512n, //ebytes64
   10: 1024n, //ebytes128
   11: 2048n, //ebytes256
@@ -110,7 +112,7 @@ export enum FhevmOperator {
   fheRandBounded,
 }
 
-export function getHandleFhevmType(handle: ethers.BigNumberish): FhevmType {
+export function getHandleFhevmType(handle: EthersT.BigNumberish): FhevmType {
   let t: number = -1;
   if (typeof handle === "string") {
     t = parseInt(handle.slice(-4, -2), 16);
@@ -129,7 +131,7 @@ export function encodeComputedFhevmHandle(
   solidityTypes: ReadonlyArray<string>,
   values: (string | bigint | number)[],
 ) {
-  const handleHex = ethers.keccak256(ethers.solidityPacked(["uint8", ...solidityTypes], [operator, ...values]));
+  const handleHex = EthersT.keccak256(EthersT.solidityPacked(["uint8", ...solidityTypes], [operator, ...values]));
   // Replace last 4 bytes with type and version
   return handleHex.slice(0, -4) + toBeHexNoPrefix(handleType, 1) + toBeHexNoPrefix(FHEVM_HANDLE_VERSION, 1);
 }

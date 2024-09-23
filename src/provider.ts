@@ -1,7 +1,7 @@
 import { ethers } from "ethers";
 import { ProviderWrapper } from "hardhat/plugins";
 import type { EIP1193Provider, HardhatConfig, RequestArguments } from "hardhat/types";
-import { EXT_TFHE_LIBRARY } from "./common/contracts";
+import { EXT_TFHE_LIBRARY } from "./constants";
 
 // Always instanciated at "test" startup (in both local and mock modes)
 export class FhevmProvider extends ProviderWrapper {

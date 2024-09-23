@@ -1,7 +1,7 @@
 import assert from "assert";
 import { ethers } from "ethers";
 import { EventDecryptionEvent, ResultCallbackEvent } from "./ResultCallbackProcessor";
-import { HardhatFhevmInternalError } from "./error";
+import { HardhatFhevmInternalError } from "../error";
 import { HardhatFhevmDecryption } from "../types";
 
 export class MapID<T extends { requestID: bigint }> {

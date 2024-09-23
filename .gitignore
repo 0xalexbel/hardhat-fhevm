@@ -1,4 +1,10 @@
+/cache
+/artifacts
 /dist
+/types
+/hh_fhevm
+./hardhat.config.ts
+/test/fixture-projects/**/my_funky_fhevm
 /test/fixture-projects/**/types
 /test/fixture-projects/**/node_modules
 /test/fixture-projects/**/artifacts

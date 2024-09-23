@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs/promises";
 import rimraf from "rimraf";
 import { assert } from "chai";
-import { getUserPackageNodeModulesDir } from "../src/common/contracts";
+//import "../src/type-extensions";
 
 declare module "mocha" {
   interface Context {
@@ -15,7 +15,6 @@ declare module "mocha" {
 export function useEnvironment(fixtureProjectName: string) {
   beforeEach("Loading hardhat environment", async function () {
     process.chdir(path.join(__dirname, "fixture-projects", fixtureProjectName));
-
     this.hre = require("hardhat");
 
     await resetFixtureProject(fixtureProjectName, this.hre);
@@ -29,7 +28,8 @@ export function useEnvironment(fixtureProjectName: string) {
 }
 
 async function installFhevmSolidityContracts(fixtureProjectName: string, hre: HardhatRuntimeEnvironment) {
-  const fixtureProjectNodeModules = getUserPackageNodeModulesDir(hre.config);
+  const fixtureProjectNodeModules = path.join(hre.config.paths.root, "node_modules");
+  //getUserPackageNodeModulesDir(hre.config);
 
   // Better be sure before rimraffing...
   assert(
@@ -53,7 +53,8 @@ async function installFhevmSolidityContracts(fixtureProjectName: string, hre: Ha
 }
 
 async function resetFixtureProject(fixtureProjectName: string, hre: HardhatRuntimeEnvironment) {
-  const fixtureProjectNodeModules = getUserPackageNodeModulesDir(hre.config);
+  //const fixtureProjectNodeModules = getUserPackageNodeModulesDir(hre.config);
+  const fixtureProjectNodeModules = path.join(hre.config.paths.root, "node_modules");
 
   // Better be sure before rimraffing...
   assert(

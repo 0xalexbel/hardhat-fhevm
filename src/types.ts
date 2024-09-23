@@ -1,23 +1,17 @@
-import { HardhatNetworkHDAccountsConfig } from "hardhat/types";
+import { HardhatNetworkHDAccountsConfig, HardhatNetworkHDAccountsUserConfig } from "hardhat/types";
 
-export type FhevmHttpNetworkConfig = {
-  chainId?: number;
-  from?: string;
-  gas: "auto" | number;
-  gasPrice: "auto" | number;
-  gasMultiplier: number;
-  url: string;
-  timeout: number;
-  httpHeaders: { [name: string]: string };
-  accounts: HardhatNetworkHDAccountsConfig & FhevmNetworkAccountsConfig;
+export type FhevmNodeConfig = {
+  wsPort: number;
+  httpPort: number;
+  gatewayRelayerPrivateKey: string;
+  accounts: HardhatNetworkHDAccountsConfig;
 };
 
-export type FhevmNetworkAccountsConfig = {
-  GatewayKmsKeyID: string;
-  GatewayRelayerPrivateKey: string;
-  GatewayContractDeployer: number;
-  GatewayContractOwner: number;
-  fhevmOwner: number;
+export type FhevmNodeUserConfig = {
+  wsPort?: number;
+  httpPort?: number;
+  gatewayRelayerPrivateKey?: string;
+  accounts?: HardhatNetworkHDAccountsUserConfig;
 };
 
 export type HardhatFhevmDecryption = {
@@ -40,4 +34,15 @@ export type HardhatFhevmDecryption = {
     success: boolean;
     result: string;
   };
+};
+
+export type HardhatFhevmRuntimeLogOptions = {
+  quiet?: boolean;
+  stderr?: boolean;
+};
+
+export type HardhatFhevmProviderInfos = {
+  setBalance: string | undefined;
+  setCode: string | undefined;
+  mine: string | undefined;
 };

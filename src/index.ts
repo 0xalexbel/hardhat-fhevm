@@ -1,126 +1,212 @@
+import assert from "assert";
 import { extendConfig, extendEnvironment, extendProvider, scope, subtask, task, types } from "hardhat/config";
-import { lazyObject } from "hardhat/plugins";
 import {
   EIP1193Provider,
   HardhatConfig,
-  HardhatNetworkAccountsConfig,
+  HardhatNetworkUserConfig,
   HardhatRuntimeEnvironment,
   HardhatUserConfig,
-  TaskArguments,
+  HttpNetworkAccountsConfig,
+  NetworkConfig,
+  NetworkUserConfig,
 } from "hardhat/types";
+import { HARDHAT_NETWORK_NAME, lazyObject } from "hardhat/plugins";
 import path from "path";
-import fs from "fs";
+import { FhevmNodeConfig, HardhatFhevmRuntimeLogOptions } from "./types";
 import {
-  TASK_CLEAN,
-  TASK_COMPILE,
-  TASK_TEST,
-  TASK_TEST_SETUP_TEST_ENVIRONMENT,
-} from "hardhat/builtin-tasks/task-names";
-
-import {
-  TASK_FHEVM_START,
-  TASK_FHEVM_STOP,
-  TASK_FHEVM_REMOVE_KEYS,
-  TASK_FHEVM_CREATE_KEYS,
-  TASK_FHEVM_ACCOUNTS_SET_BALANCE,
-  TASK_FHEVM_ACCOUNTS,
-  TASK_FHEVM_DOCKER_UP,
-  TASK_FHEVM_DOCKER_DOWN,
-  TASK_FHEVM_WRITE_CONTRACT,
-  TASK_FHEVM_VERIFY_CONTRACTS,
-  TASK_FHEVM_COMPILE,
-  TASK_FHEVM_DEPLOY,
-  TASK_FHEVM_DEPLOY_ACL_CONTRACT,
-  TASK_FHEVM_DEPLOY_TFHE_EXECUTOR_CONTRACT,
-  TASK_FHEVM_DEPLOY_KMS_VERIFIER_CONTRACT,
-  TASK_FHEVM_DEPLOY_GATEWAY_CONTRACT,
-  TASK_FHEVM_GATEWAY_ADD_RELAYER,
-  TASK_FHEVM_COMPILE_DIR,
-  TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE,
-  TASK_FHEVM_START_MOCK,
-  TASK_FHEVM_COMPUTE_CONTRACT_ADDRESS,
-  TASK_FHEVM_CLEAN_IF_NEEDED,
-  TASK_FHEVM_WRITE_ALL_CONTRACTS,
-  TASK_FHEVM_DEPLOY_EXTRA,
-} from "./internal-task-names";
-
-import {
-  SCOPE_FHEVM,
-  SCOPE_FHEVM_TASK_START,
-  SCOPE_FHEVM_TASK_STOP,
-  SCOPE_FHEVM_TASK_RESTART,
-  SCOPE_FHEVM_TASK_CLEAN,
-  TASK_FHEVM_SETUP,
-} from "./task-names";
-
-import { logTrace, HardhatFhevmError, logBox, logDim, logDimWithGreenPrefix, LogOptions } from "./common/error";
-import { MockFhevmRuntimeEnvironment } from "./mock/MockFhevmRuntimeEnvironment";
-import { LocalFhevmRuntimeEnvironment } from "./local/LocalFhevmRuntimeEnvironment";
-import "./type-extensions";
-import rimraf from "rimraf";
-import { runCmd, runDocker } from "./run";
-import { ethers } from "ethers";
-import {
-  cleanOrBuildNeeded,
-  computeContractAddress,
-  deployFhevmContract,
+  DEFAULT_GATEWAY_RELAYER_PRIVATE_KEY,
+  DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG,
+  DEFAULT_LOCAL_FHEVM_HTTP_PORT,
+  DEFAULT_LOCAL_FHEVM_WS_PORT,
   EXT_TFHE_LIBRARY,
-  FhevmContractName,
-  getACLOwnerSigner,
-  getFhevmContractOwnerSigner,
-  getUserPackageNodeModulesDir,
-  getGatewayContract,
-  getGatewayDeployerWallet,
-  getGatewayOwnerWallet,
-  getKMSVerifierOwnerSigner,
-  getTFHEExecutorOwnerSigner,
-  getWalletAddressAt,
-  readGatewayContractAddress,
-  readKMSVerifierAddress,
-  readTFHEExecutorAddress,
-  toFhevmContractName,
-  writeContractAddress,
-  writeImportSolFile,
-  getFhevmContractAddressInfo,
-  writeLibGateway,
+  LOCAL_FHEVM_NETWORK_NAME,
+  ZAMA_DEV_NETWORK_CONFIG,
+  ZAMA_DEV_NETWORK_NAME,
+  ZamaDev,
+  ZamaDevConfig,
+} from "./constants";
+import {
+  TASK_FHEVM_CLEAN_IF_NEEDED,
+  TASK_FHEVM_COMPILE,
+  TASK_FHEVM_COMPILE_DIR,
+  TASK_FHEVM_DEPLOY,
+  TASK_FHEVM_DEPLOY_EXTRA,
+  TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE,
+  TASK_FHEVM_DOCKER_CONFIG,
+  TASK_FHEVM_DOCKER_DOWN,
+  TASK_FHEVM_DOCKER_UP,
+  TASK_FHEVM_START_LOCAL,
+  TASK_FHEVM_START_MOCK,
+  TASK_FHEVM_STOP_LOCAL,
+} from "./internal-task-names";
+import { TASK_COMPILE, TASK_CLEAN, TASK_TEST } from "hardhat/builtin-tasks/task-names";
+import { HardhatFhevmError } from "./error";
+import { ZamaFhevmRuntimeEnvironment } from "./zama/ZamaFhevmRuntimeEnvironment";
+import { LocalFhevmRuntimeEnvironment } from "./local/LocalFhevmRuntimeEnvironment";
+import { MockFhevmRuntimeEnvironment } from "./mock/MockFhevmRuntimeEnvironment";
+import { logBox, logDim, logTrace } from "./log";
+import {
   ____deployAndRunGatewayFirstRequestBugAvoider,
   ____writeGatewayFirstRequestBugAvoider,
-  writeMockedPrecompile,
-  areFhevmContractsDeployed,
-} from "./common/contracts";
-import assert from "assert";
-import {
-  HardhatFhevmRuntimeEnvironment,
-  FhevmRuntimeEnvironmentType,
-  FhevmRuntimeLogOptions,
-} from "./common/HardhatFhevmRuntimeEnvironment";
-import {
-  getInstallKeysDir,
-  getInstallPrivKeyFile,
-  getInstallPrivKeysDir,
-  getInstallPubKeyFile,
-  getInstallPubKeysDir,
-  getInstallServerKeyFile,
-  getTmpDir,
-  keysInstallNeeded,
-} from "./common/dirs";
+  getUserPackageNodeModulesDir,
+  zamaAreContractsDeployed,
+  zamaCleanOrBuildNeeded,
+  zamaDeploy,
+  zamaPrepareCompilationIfNeeded,
+  zamaAdminUserAddresses,
+  zamaWriteMockPrecompileSync,
+} from "./common/zamaContracts";
+import { ethers as EthersT } from "ethers";
+import { getDeployedByteCode } from "./utils";
+import { HardhatFhevmRuntimeEnvironmentType } from "./common/HardhatFhevmRuntimeEnvironment";
+import { keysInstallNeeded } from "./dirs";
 import { FhevmProvider } from "./provider";
-import { LOCAL_FHEVM_NETWORK_NAME, HARDHAT_FHEVM_DEFAULT_MNEMONIC, DEFAULT_FHEVM_NETWORK_CONFIG } from "./constants";
-import { isDeployed, sleep } from "./common/utils";
+import {
+  SCOPE_FHEVM,
+  SCOPE_FHEVM_TASK_CLEAN,
+  SCOPE_FHEVM_TASK_RESTART,
+  SCOPE_FHEVM_TASK_START,
+  SCOPE_FHEVM_TASK_STOP,
+  SCOPE_FHEVM_TASK_TEST,
+  TASK_FHEVM_SETUP,
+  TASK_FHEVM_INSTALL_SOLIDITY,
+} from "./task-names";
+import rimraf from "rimraf";
+import { DockerServices, LOCAL_FHEVM_CHAIN_ID } from "./common/DockerServices";
+import { walletFromMnemonic } from "./wallet";
+
+import "./type-extensions";
+
+////////////////////////////////////////////////////////////////////////////////
+
+function _getAdminAddresses(config: ZamaDevConfig, hre: HardhatRuntimeEnvironment) {
+  const addresses = zamaAdminUserAddresses(config);
+
+  // Add the Gateway Relayer.
+  // The Gateway Relayer needs balance to relay decryptions.
+  addresses.push(hre.fhevm.gatewayRelayerWallet().address);
+
+  return addresses;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+function _getUserAddresses(config: ZamaDevConfig, hre: HardhatRuntimeEnvironment) {
+  const accounts = hre.network.config.accounts;
+  if (typeof accounts === "string") {
+    return [];
+  }
+
+  if (Array.isArray(accounts)) {
+    if (accounts.length === 0) {
+      return [];
+    }
+    // accounts: string[]
+    if (typeof accounts[0] === "string") {
+      const _accounts = accounts as Array<string>;
+      return _accounts.map((v) => new EthersT.Wallet(v).address);
+    }
+    // accounts: HardhatNetworkAccountConfig[]
+    return [];
+  }
+
+  const http_accounts: HttpNetworkAccountsConfig = accounts;
+  const addresses = [];
+  for (let i = 0; i < http_accounts.count; ++i) {
+    const a = walletFromMnemonic(
+      i + http_accounts.initialIndex,
+      http_accounts.mnemonic,
+      http_accounts.path,
+      null,
+    ).address;
+    addresses.push(a);
+  }
+  return addresses;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Exports
 ////////////////////////////////////////////////////////////////////////////////
 
-export { HARDHAT_FHEVM_DEFAULT_MNEMONIC } from "./constants";
+export { ZAMA_DEV_NETWORK_CONFIG } from "./constants";
+export { LOCAL_FHEVM_CHAIN_ID } from "./common/DockerServices";
 export * from "./types";
-export { HardhatFhevmInstance } from "./common/HardhatFhevmRuntimeEnvironment";
+export { HardhatFhevmInstance } from "./common/HardhatFhevmInstance";
+export { HardhatFhevmRuntimeEnvironment } from "./common/HardhatFhevmRuntimeEnvironment";
 
+////////////////////////////////////////////////////////////////////////////////
+// HH Plugin Config
 ////////////////////////////////////////////////////////////////////////////////
 
 extendConfig((config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) => {
   const userFhevmPath = userConfig.paths?.fhevm;
-  const userHHMock = userConfig.networks?.hardhat?.mockFhevm;
+  const userFhevmNode = userConfig.fhevmNode;
+
+  const fhevmNode: FhevmNodeConfig = {
+    accounts: {
+      count: userFhevmNode?.accounts?.count ?? DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG.count,
+      accountsBalance: userFhevmNode?.accounts?.accountsBalance ?? DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG.accountsBalance,
+      initialIndex: userFhevmNode?.accounts?.initialIndex ?? DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG.initialIndex,
+      passphrase: userFhevmNode?.accounts?.passphrase ?? DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG.passphrase,
+      path: userFhevmNode?.accounts?.path ?? DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG.path,
+      mnemonic: userFhevmNode?.accounts?.mnemonic ?? DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG.mnemonic,
+    },
+    gatewayRelayerPrivateKey: userFhevmNode?.gatewayRelayerPrivateKey ?? DEFAULT_GATEWAY_RELAYER_PRIVATE_KEY,
+    httpPort: userFhevmNode?.httpPort ?? DEFAULT_LOCAL_FHEVM_HTTP_PORT,
+    wsPort: userFhevmNode?.wsPort ?? DEFAULT_LOCAL_FHEVM_WS_PORT,
+  };
+
+  const fhevmNodeUrl = `http://localhost:${fhevmNode.httpPort}`;
+
+  // if "zamadev" network is not there, add the default config
+  if (!userConfig.networks || !(ZAMA_DEV_NETWORK_NAME in userConfig.networks)) {
+    config.networks[ZAMA_DEV_NETWORK_NAME] = ZAMA_DEV_NETWORK_CONFIG;
+  }
+
+  // if "fhevm" network is not there, add the default config
+  if (!userConfig.networks || !(LOCAL_FHEVM_NETWORK_NAME in userConfig.networks)) {
+    config.networks[LOCAL_FHEVM_NETWORK_NAME] = {
+      url: `http://localhost:${fhevmNode.httpPort}`,
+      accounts: DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG,
+      chainId: LOCAL_FHEVM_CHAIN_ID,
+      mockFhevm: false,
+      useOnChainFhevmMockProcessor: false,
+      gas: "auto",
+      gasPrice: "auto",
+      gasMultiplier: 1,
+      timeout: 40000,
+      httpHeaders: {},
+    };
+  }
+
+  const networkNames = Object.keys(config.networks);
+
+  for (let i = 0; i < networkNames.length; ++i) {
+    const networkName = networkNames[i];
+    if (userConfig.networks) {
+      const networks = userConfig.networks;
+      if (networkName === HARDHAT_NETWORK_NAME) {
+        const hh_network: HardhatNetworkUserConfig | undefined = networks[networkName];
+        const enableMockFhevm = !(hh_network?.mockFhevm === false);
+        const enableOnChainFhevmMockProcessor = !(hh_network?.useOnChainFhevmMockProcessor === false);
+        // true by default
+        config.networks[HARDHAT_NETWORK_NAME].mockFhevm = enableMockFhevm;
+        // By default : use on-chain mock processor
+        config.networks[HARDHAT_NETWORK_NAME].useOnChainFhevmMockProcessor =
+          enableOnChainFhevmMockProcessor && enableMockFhevm;
+      } else {
+        const network: NetworkUserConfig | undefined = networks[networkName];
+        let isLocalFhevmNode =
+          network && "url" in network && network.url === fhevmNodeUrl && network.chainId === LOCAL_FHEVM_CHAIN_ID;
+        const enableMockFhevm = !(network?.mockFhevm === false) && !isLocalFhevmNode;
+        const enableOnChainFhevmMockProcessor = !(network?.useOnChainFhevmMockProcessor === false);
+        // true by default
+        config.networks[networkName].mockFhevm = enableMockFhevm;
+        // By default : use on-chain mock processor
+        config.networks[networkName].useOnChainFhevmMockProcessor = enableOnChainFhevmMockProcessor && enableMockFhevm;
+      }
+    }
+  }
 
   let fhevmPath: string;
 
@@ -136,52 +222,48 @@ extendConfig((config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) =>
 
   const contractsAbsolutePath = path.join(config.paths.root, "node_modules");
 
-  const hhMock: boolean = !(userHHMock === false);
-
-  let mnemonic: string = HARDHAT_FHEVM_DEFAULT_MNEMONIC;
-
-  const hh_accounts: HardhatNetworkAccountsConfig = config.networks.hardhat.accounts;
-  if ("mnemonic" in hh_accounts) {
-    // HardhatNetworkHDAccountsConfig
-    mnemonic = hh_accounts.mnemonic;
-  } else {
-    if (hhMock) {
-      throw new HardhatFhevmError("hardhat-fhevm only supports HDAccounts when running with the hardhat network");
-    }
-  }
-
   config.paths.fhevm = fhevmPath;
   config.paths.fhevmContracts = contractsAbsolutePath;
-  config.networks.fhevm = {
-    ...DEFAULT_FHEVM_NETWORK_CONFIG,
-    httpHeaders: { ...DEFAULT_FHEVM_NETWORK_CONFIG.httpHeaders },
-    accounts: { ...DEFAULT_FHEVM_NETWORK_CONFIG.accounts, mnemonic },
-  };
-  config.networks.hardhat.mockFhevm = hhMock;
+  config.fhevmNode = fhevmNode;
 });
 
 ////////////////////////////////////////////////////////////////////////////////
+// HH Plugin Environment
+////////////////////////////////////////////////////////////////////////////////
+
+function guessRuntimeType(networkConfig: NetworkConfig) {
+  if (ZamaFhevmRuntimeEnvironment.isZamaNetwork(networkConfig)) {
+    return HardhatFhevmRuntimeEnvironmentType.Zama;
+  }
+  if (LocalFhevmRuntimeEnvironment.isLocalNetwork(networkConfig)) {
+    return HardhatFhevmRuntimeEnvironmentType.Local;
+  }
+  if (networkConfig.mockFhevm === true) {
+    return HardhatFhevmRuntimeEnvironmentType.Mock;
+  }
+  return HardhatFhevmRuntimeEnvironmentType.None;
+}
 
 extendEnvironment((hre) => {
   hre.fhevm = lazyObject(() => {
-    if (HardhatFhevmRuntimeEnvironment.mockRequested(hre)) {
-      return new MockFhevmRuntimeEnvironment(hre);
-    } else if (HardhatFhevmRuntimeEnvironment.localRequested(hre)) {
-      return new LocalFhevmRuntimeEnvironment(hre);
-    } else {
-      if (hre.network.name === "hardhat") {
+    const rtt = guessRuntimeType(hre.network.config);
+    switch (rtt) {
+      case HardhatFhevmRuntimeEnvironmentType.Zama:
+        return new ZamaFhevmRuntimeEnvironment(hre);
+      case HardhatFhevmRuntimeEnvironmentType.Local:
+        return new LocalFhevmRuntimeEnvironment(hre);
+      case HardhatFhevmRuntimeEnvironmentType.Mock:
+        return new MockFhevmRuntimeEnvironment(hre);
+      default:
         throw new HardhatFhevmError(
-          "Looks like 'hardhat-fhevm' has been disabled in the hardhat config. Set the 'config.networks.hardhat.mockFhevm' property to 'true' to enable fhevm on the 'hardhat' network.",
+          `You are interacting with the hardhat-fhevm's custom field named 'fhevm' in the Hardhat Runtime Environment, but the network named '${hre.network.name}' does not support Fhevm.`,
         );
-      } else {
-        throw new HardhatFhevmError(
-          `You are interacting with the hardhat-fhevm's custom field named 'fhevm' in the Hardhat Runtime Environment, but the network named '${hre.network.name}' does not support Fhevm. Only the 'hardhat' and the 'fhevm' networks support fhevm.`,
-        );
-      }
     }
   });
 });
 
+////////////////////////////////////////////////////////////////////////////////
+// HH Plugin Provider
 ////////////////////////////////////////////////////////////////////////////////
 
 extendProvider(async (provider: EIP1193Provider, config: HardhatConfig, network: string) => {
@@ -189,256 +271,36 @@ extendProvider(async (provider: EIP1193Provider, config: HardhatConfig, network:
 });
 
 ////////////////////////////////////////////////////////////////////////////////
-
-async function setBalance(address: string, amount: string, hre: HardhatRuntimeEnvironment) {
-  const containerName = hre.fhevm.dockerServices().validatorContainerName();
-
-  let ok = false;
-  while (!ok) {
-    //use FAUCET_AMOUNT env var to specify the amout
-    const stdout = await runCmd(
-      `docker exec -e FAUCET_AMOUNT=${amount} -i ${containerName} faucet ${address} | grep height`,
-    );
-    const res = JSON.parse(stdout);
-    if (!res.raw_log.match("account sequence mismatch")) {
-      ok = true;
-      break;
-    }
-    await sleep(200);
-  }
-
-  const maxRetry = 50;
-  let i = 0;
-  while (i < maxRetry) {
-    const balance = await hre.fhevm.provider().getBalance(address);
-    if (balance > 0) {
-      logDim(`${address} balance=${balance}`, hre.fhevm.logOptions);
-      return;
-    }
-    await sleep(1000);
-    i++;
-  }
-
-  logDim(`${address} balance=???`, hre.fhevm.logOptions);
-}
-
-async function setMockBalance(
-  address: string,
-  amount: ethers.BytesLike | ethers.BigNumberish,
-  hre: HardhatRuntimeEnvironment,
-) {
-  assert(hre.fhevm.isMock());
-  assert(!hre.fhevm.isConfliting());
-  await hre.network.provider.send("hardhat_setBalance", [address, ethers.toQuantity(amount)]);
-
-  const balance = await hre.fhevm.provider().getBalance(address);
-  logDim(`${address} balance=${balance}`, hre.fhevm.logOptions);
-}
-
+// Docker tasks
 ////////////////////////////////////////////////////////////////////////////////
 
-subtask(TASK_FHEVM_REMOVE_KEYS, async (_taskArgs, hre) => {
-  const keysDir = getInstallKeysDir(hre);
-  try {
-    await rimraf(keysDir);
-  } catch {
-    throw new HardhatFhevmError(`Unable to remove keys directory: ${keysDir}`);
-  }
+/* eslint-disable no-empty-pattern */
+subtask(TASK_FHEVM_DOCKER_CONFIG).setAction(async ({}, hre: HardhatRuntimeEnvironment) => {
+  // No network constraint
+  return DockerServices.computeDockerServicesConfig(ZamaDev, hre.config.fhevmNode);
 });
 
-subtask(TASK_FHEVM_ACCOUNTS, async (_taskArgs, hre) => {
-  const relayerWallet = hre.fhevm.gatewayRelayerWallet();
-  const deployerWallet = getGatewayDeployerWallet(hre);
-  const ownerWallet = getGatewayOwnerWallet(hre);
-
-  const addresses = [];
-  for (let i = 0; i < 5; ++i) {
-    addresses.push(getWalletAddressAt(i, hre.config));
-  }
-
-  // Default = 9
-  const ACLOwnerSigner = getACLOwnerSigner(hre);
-  if (!addresses.includes(ACLOwnerSigner.address)) {
-    addresses.push(ACLOwnerSigner.address);
-  }
-  // Default = 9
-  const KMSOwnerSigner = getKMSVerifierOwnerSigner(hre);
-  if (!addresses.includes(KMSOwnerSigner.address)) {
-    addresses.push(KMSOwnerSigner.address);
-  }
-  // Default = 9
-  const TFHEExecutorOwnerSigner = getTFHEExecutorOwnerSigner(hre);
-  if (!addresses.includes(TFHEExecutorOwnerSigner.address)) {
-    addresses.push(TFHEExecutorOwnerSigner.address);
-  }
-  if (!addresses.includes(relayerWallet.address)) {
-    addresses.push(relayerWallet.address);
-  }
-  // Default = 4
-  if (!addresses.includes(deployerWallet.address)) {
-    addresses.push(deployerWallet.address);
-  }
-  // Default = 4
-  if (!addresses.includes(ownerWallet.address)) {
-    addresses.push(ownerWallet.address);
-  }
-
-  // Default len = 7
-  return addresses;
+/* eslint-disable no-empty-pattern */
+subtask(TASK_FHEVM_DOCKER_UP).setAction(async ({}, hre: HardhatRuntimeEnvironment) => {
+  // No network constraint
+  await hre.fhevm.dockerServices.initWith(ZamaDev, hre.config.fhevmNode);
+  await hre.fhevm.dockerServices.up();
 });
 
-subtask(TASK_FHEVM_ACCOUNTS_SET_BALANCE, async (_taskArgs, hre) => {
-  logTrace("setup accounts balance", hre.fhevm.logOptions);
-  const addresses: string[] = await hre.run(TASK_FHEVM_ACCOUNTS);
-  assert(Array.isArray(addresses));
-
-  const n = hre.config.networks.fhevm.accounts.count;
-  for (let i = 0; i < n; ++i) {
-    const a = getWalletAddressAt(i, hre.config);
-    if (!addresses.includes(a)) {
-      addresses.push(a);
-    }
-  }
-
-  const promises = addresses.map((address: string) => {
-    if (hre.fhevm.isLocal()) {
-      return setBalance(address, hre.config.networks.fhevm.accounts.accountsBalance, hre);
-    } else if (hre.fhevm.isMock()) {
-      return setMockBalance(address, hre.config.networks.fhevm.accounts.accountsBalance, hre);
-    } else {
-      throw new HardhatFhevmError(`Invalid network '${hre.network.name}'`);
-    }
-  });
-  await Promise.all(promises);
+/* eslint-disable no-empty-pattern */
+subtask(TASK_FHEVM_DOCKER_DOWN).setAction(async ({}, hre: HardhatRuntimeEnvironment) => {
+  // No network constraint
+  await hre.fhevm.dockerServices.initWith(ZamaDev, hre.config.fhevmNode);
+  await hre.fhevm.dockerServices.down();
 });
 
-subtask(TASK_FHEVM_CREATE_KEYS, async (_taskArgs, hre) => {
-  logTrace("setup fhevm keys", hre.fhevm.logOptions);
-  const dockerImage = hre.fhevm.dockerServices().kmsCoreServiceDockerImage();
-
-  let gatewayKmsKeyID;
-  try {
-    const gatewayEnvs = hre.fhevm.dockerServices().gatewayServiceEnvs();
-    gatewayKmsKeyID = gatewayEnvs.GATEWAY__KMS__KEY_ID;
-    assert(gatewayKmsKeyID === hre.config.networks.fhevm.accounts.GatewayKmsKeyID);
-  } catch {
-    throw new HardhatFhevmError(`Unable to retreive gateway kms key ID`);
-  }
-
-  const tmpDir = getTmpDir();
-  const tmpKeysDir = path.join(tmpDir, "keys");
-
-  try {
-    fs.mkdirSync(tmpKeysDir, { recursive: true });
-    const pubKeysDir = getInstallPubKeysDir(hre);
-    const privKeysDir = getInstallPrivKeysDir(hre);
-
-    runDocker(["pull", dockerImage], hre.fhevm.logOptions);
-    runDocker(["create", "--name", "hhfhevm-temp-container", dockerImage], hre.fhevm.logOptions);
-    runDocker(["cp", "hhfhevm-temp-container:/app/kms/core/service/keys", tmpDir], hre.fhevm.logOptions);
-    runDocker(["rm", "hhfhevm-temp-container"], hre.fhevm.logOptions);
-
-    fs.mkdirSync(privKeysDir, { recursive: true });
-    fs.mkdirSync(pubKeysDir, { recursive: true });
-
-    const sks = path.join(tmpKeysDir, "PUB/ServerKey", gatewayKmsKeyID);
-    if (!fs.existsSync(sks)) {
-      throw new HardhatFhevmError("Unable to retreive server key file");
-    }
-    const pks = path.join(tmpKeysDir, "PUB/PublicKey", gatewayKmsKeyID);
-    if (!fs.existsSync(pks)) {
-      throw new HardhatFhevmError("Unable to retreive public key file");
-    }
-    const cks = path.join(tmpKeysDir, "PRIV/FhePrivateKey", gatewayKmsKeyID);
-    if (!fs.existsSync(cks)) {
-      throw new HardhatFhevmError("Unable to retreive private key file");
-    }
-
-    logDim(`Copying server key  to ${pubKeysDir}/sks`, hre.fhevm.logOptions);
-    fs.copyFileSync(sks, getInstallServerKeyFile(hre));
-
-    logDim(`Copying public key  to ${pubKeysDir}/pks`, hre.fhevm.logOptions);
-    fs.copyFileSync(pks, getInstallPubKeyFile(hre));
-
-    logDim(`Copying private key to ${privKeysDir}/cks`, hre.fhevm.logOptions);
-    fs.copyFileSync(cks, getInstallPrivKeyFile(hre));
-  } finally {
-    try {
-      logDim(`rm -rf ${tmpDir}`, hre.fhevm.logOptions);
-      rimraf(tmpDir);
-    } catch {
-      /* eslint-disable no-empty*/
-    }
-  }
-});
-
-subtask(TASK_FHEVM_DOCKER_UP, async (_taskArgs, hre) => {
-  logTrace("start docker services", hre.fhevm.logOptions);
-  await hre.fhevm.dockerServices().installFiles();
-  // docker compose -f /path/to/docker-compose-full.yml up --detach
-  runDocker(["compose", "-f", hre.fhevm.dockerServices().installDockerFile, "up", "--detach"], hre.fhevm.logOptions);
-});
-
-subtask(TASK_FHEVM_DOCKER_DOWN, async (_taskArgs, hre) => {
-  logTrace("stop docker services", hre.fhevm.logOptions);
-  await hre.fhevm.dockerServices().installFiles();
-  //docker compose  -f /path/to/docker-compose-full.yml down
-  runDocker(["compose", "-f", hre.fhevm.dockerServices().installDockerFile, "down"], hre.fhevm.logOptions);
-});
-
-subtask(TASK_FHEVM_VERIFY_CONTRACTS, async function (taskArgs, hre) {
-  const validatorEnvs = hre.fhevm.dockerServices().validatorServiceEnvs();
-  const tfhe_executor_addr = computeContractAddress("TFHEExecutor", undefined, hre);
-  // console.log(tfhe_executor_addr);
-  // console.log(validatorEnvs["TFHE_EXECUTOR_CONTRACT_ADDRESS"]);
-  if (tfhe_executor_addr.toLowerCase() !== validatorEnvs["TFHE_EXECUTOR_CONTRACT_ADDRESS"].toLowerCase()) {
-    throw new HardhatFhevmError("Incompatible TFHEExecutor contract addresses");
-  }
-
-  const gateway_addr = computeContractAddress("GatewayContract", undefined, hre);
-  const gatewayEnvs = hre.fhevm.dockerServices().gatewayServiceEnvs();
-  if (gateway_addr.toLowerCase() !== "0x" + gatewayEnvs["GATEWAY__ETHEREUM__ORACLE_PREDEPLOY_ADDRESS"].toLowerCase()) {
-    throw new HardhatFhevmError("Incompatible Gateway contract addresses");
-  }
-});
-
-subtask(TASK_FHEVM_COMPUTE_CONTRACT_ADDRESS)
-  .addParam("contractName", undefined, undefined, types.string)
-  .setAction(async function (taskArgs, hre) {
-    const contractName = toFhevmContractName(taskArgs.contractName);
-    return computeContractAddress(contractName, undefined, hre);
-  });
-
-subtask(TASK_FHEVM_WRITE_CONTRACT)
-  .addParam("contractName", undefined, undefined, types.string)
-  .addParam("force", undefined, undefined, types.boolean)
-  .setAction(async function (taskArgs, hre) {
-    const contractName = toFhevmContractName(taskArgs.contractName);
-
-    let installNeeded = taskArgs.force as boolean;
-
-    if (!installNeeded) {
-      const { currentAddress, nextAddress } = getFhevmContractAddressInfo(contractName, hre);
-
-      installNeeded =
-        currentAddress.length === 0 ||
-        (currentAddress !== nextAddress && currentAddress.length > 0 && nextAddress.length > 0);
-
-      if (!installNeeded) {
-        return {
-          address: currentAddress,
-          changed: false,
-        };
-      }
-    }
-
-    return writeContractAddress(contractName, undefined, hre);
-  });
+////////////////////////////////////////////////////////////////////////////////
+// Compile tasks
+////////////////////////////////////////////////////////////////////////////////
 
 subtask(TASK_FHEVM_COMPILE_DIR)
   .addParam("dir", undefined, undefined, types.string)
-  .setAction(async (taskArgs: TaskArguments, hre: HardhatRuntimeEnvironment) => {
-    const dir = taskArgs.dir as string;
+  .setAction(async ({ dir }: { dir: string }, hre: HardhatRuntimeEnvironment) => {
     const sources = hre.config.paths.sources;
     hre.config.paths.sources = dir;
     try {
@@ -448,147 +310,223 @@ subtask(TASK_FHEVM_COMPILE_DIR)
     }
   });
 
-subtask(TASK_FHEVM_CLEAN_IF_NEEDED, async (_taskArgs, hre) => {
-  const cleanOrBuild = cleanOrBuildNeeded(hre);
+subtask(TASK_FHEVM_CLEAN_IF_NEEDED).setAction(async ({}, hre) => {
+  const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
+  const cleanOrBuild = zamaCleanOrBuildNeeded(contractsRootDir, ZamaDev, hre);
   if (cleanOrBuild.clean) {
     logTrace("rebuild needed!", hre.fhevm.logOptions);
     await hre.run(TASK_CLEAN);
   }
-  return cleanOrBuild.clean;
+  return cleanOrBuild;
 });
 
-subtask(TASK_FHEVM_WRITE_ALL_CONTRACTS)
-  .addParam("force", undefined, undefined, types.boolean)
-  .setAction(async (taskArgs, hre) => {
-    const force = taskArgs.force as boolean;
+/**
+ * Generates FHEVM contacts in node_modules/fhevm
+ * Generates a temporary 'import' solidity file in 'hh_fhevm' directory
+ * Compiles the import solidity file
+ */
+subtask(TASK_FHEVM_COMPILE).setAction(async ({}, hre) => {
+  logTrace("compile fhevm contracts", hre.fhevm.logOptions);
+  const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
+  const dir_to_compile = await zamaPrepareCompilationIfNeeded(
+    hre.network.config.useOnChainFhevmMockProcessor ?? false,
+    contractsRootDir,
+    hre.config.paths,
+    ZamaDev,
+    hre.fhevm.logOptions,
+  );
+  if (dir_to_compile) {
+    await hre.run(TASK_FHEVM_COMPILE_DIR, { dir: dir_to_compile });
+  }
+});
 
-    // Write ACL.sol
-    const ACL_res = await hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "ACL", force });
+////////////////////////////////////////////////////////////////////////////////
+// Deploy tasks
+////////////////////////////////////////////////////////////////////////////////
 
-    // Write TFHEExecutor.sol
-    /* const TFHEExecutor_res = */ await hre.run(TASK_FHEVM_WRITE_CONTRACT, {
-      contractName: "TFHEExecutor",
-      force,
-    });
-
-    // Write KMSVerfier.sol
-    const KMSVerifier_res = await hre.run(TASK_FHEVM_WRITE_CONTRACT, { contractName: "KMSVerifier", force });
-
-    // Write GatewayContract.sol
-    const GatewayContract_res = await hre.run(TASK_FHEVM_WRITE_CONTRACT, {
-      contractName: "GatewayContract",
-      force,
-    });
-
-    // Write Gateway.sol
-    writeLibGateway(
-      { ACL: ACL_res.address, GatewayContract: GatewayContract_res.address, KMSVerifier: KMSVerifier_res.address },
-      hre,
+/**
+ * Only on mock-enabled networks
+ * Do nothing if `MockedPrecompile.sol` is already deployed
+ */
+subtask(TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE).setAction(async ({}, hre) => {
+  if (hre.fhevm.runtimeType !== HardhatFhevmRuntimeEnvironmentType.Mock) {
+    throw new HardhatFhevmError(
+      `Cannot deploy a mock fhevm on network ${hre.network.name}. This network does not support mock fhevm.`,
     );
+  }
+
+  // Always use hre providers
+  const provider = hre.ethers.provider;
+  const logOptions = hre.fhevm.logOptions;
+
+  // Deploy MockedPrecompile.sol
+  const targetAddress = EXT_TFHE_LIBRARY;
+
+  // We do not check if MockedPrecompile.sol bytecode has changed
+  // We only check if the contract is deployed
+  const bc = await getDeployedByteCode(targetAddress, provider);
+  if (bc !== undefined) {
+    logDim(`Code of Mocked Pre-compile already set at address: ${targetAddress}`, logOptions);
+    return { address: targetAddress, deploy: false };
+  }
+
+  const pi = await hre.fhevm.getProviderInfos();
+  if (!pi.setCode) {
+    throw new HardhatFhevmError(`Network ${hre.network.name} does not support fhevm mock mode`);
+  }
+
+  logTrace("compile fhevm mock coprocessor contract", logOptions);
+
+  // Compile MockedPrecompile.sol
+  const dir = zamaWriteMockPrecompileSync(hre.config.paths.fhevm);
+  await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
+
+  const artifact = await hre.artifacts.readArtifact("MockedPrecompile");
+  const eth_provider = hre.network.provider;
+  await eth_provider.send(pi.setCode, [targetAddress, artifact.deployedBytecode]);
+
+  logDim(`Code of Mocked Pre-compile set at address: ${targetAddress}`, logOptions);
+
+  return { address: targetAddress, deploy: true };
+});
+
+/**
+ * Any network
+ */
+subtask(TASK_FHEVM_DEPLOY)
+  .addParam("provider", undefined, undefined, types.any)
+  .setAction(async ({ provider }: { provider: EthersT.Provider }, hre) => {
+    const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
+    const relayerWallet = hre.fhevm.gatewayRelayerWallet(provider);
+    const res = await zamaDeploy(contractsRootDir, relayerWallet.address, ZamaDev, provider, hre, hre.fhevm.logOptions);
+    return res;
   });
 
-subtask(TASK_FHEVM_COMPILE, async (_taskArgs, hre) => {
-  logTrace("compile fhevm contracts", hre.fhevm.logOptions);
+/**
+ * Local fhevm node only
+ */
+subtask(TASK_FHEVM_DEPLOY_EXTRA)
+  .addParam("provider", undefined, undefined, types.any)
+  .setAction(async ({ provider }: { provider: EthersT.Provider }, hre) => {
+    const logOptions = hre.fhevm.logOptions;
+    // runtime type can be any value
+    // must test against the chainid
+    const n: EthersT.Network = await provider.getNetwork();
+    if (n.chainId !== BigInt(DockerServices.chainId)) {
+      logTrace(
+        `No extra deployment on network '${hre.network.name}' needed. This network is not a local fhevm node.`,
+        logOptions,
+      );
+      return;
+    }
 
-  await hre.run(TASK_FHEVM_WRITE_ALL_CONTRACTS, { force: !true });
+    logTrace("compile gateway bug fix...", logOptions);
 
-  const dir = writeImportSolFile(hre);
-  await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
-});
+    const dir = ____writeGatewayFirstRequestBugAvoider(hre.config.paths.fhevm);
+    await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
 
-subtask(TASK_FHEVM_DEPLOY_ACL_CONTRACT, async (_taskArgs, hre) => {
-  const tfhe_executor_addr = readTFHEExecutorAddress(getUserPackageNodeModulesDir(hre.config));
-  return await deployFhevmContract("ACL", [tfhe_executor_addr], hre);
-});
+    /**
+     * First decryption request bug
+     * ============================
+     * the function '____deployAndRunGatewayFirstRequestBugAvoider' is temporary
+     * should be removed when the gateway bug will be fixed
+     */
+    logTrace("deploy+run gateway bug fix...", logOptions);
 
-subtask(TASK_FHEVM_DEPLOY_TFHE_EXECUTOR_CONTRACT, async (_taskArgs, hre) => {
-  return await deployFhevmContract("TFHEExecutor", [], hre);
-});
+    await ____deployAndRunGatewayFirstRequestBugAvoider(ZamaDev, hre, provider);
+  });
 
-subtask(TASK_FHEVM_DEPLOY_KMS_VERIFIER_CONTRACT, async (_taskArgs, hre) => {
-  return await deployFhevmContract("KMSVerifier", [], hre);
-});
+////////////////////////////////////////////////////////////////////////////////
 
-subtask(TASK_FHEVM_DEPLOY_GATEWAY_CONTRACT, async (_taskArgs, hre) => {
-  const ownerWallet = getGatewayOwnerWallet(hre);
-  const kms_verifier_addr = readKMSVerifierAddress(getUserPackageNodeModulesDir(hre.config));
-  return await deployFhevmContract("GatewayContract", [ownerWallet.address, kms_verifier_addr], hre);
-});
+/**
+ * Any mock fhevm enabled network
+ */
+subtask(TASK_FHEVM_START_MOCK).setAction(async ({}, hre) => {
+  logTrace("start mock fhevm", hre.fhevm.logOptions);
 
-subtask(TASK_FHEVM_GATEWAY_ADD_RELAYER, async (_taskArgs, hre) => {
-  const gatewayContractAddress = readGatewayContractAddress(getUserPackageNodeModulesDir(hre.config));
-  const codeAtAddress = await hre.fhevm.provider().getCode(gatewayContractAddress);
-  if (codeAtAddress === "0x") {
-    throw new HardhatFhevmError(`${gatewayContractAddress} is not a smart contract`);
+  if (hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Zama) {
+    throw new HardhatFhevmError(`Cannot start a mock fhevm on zama dev network.`);
+  }
+  if (hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Local) {
+    throw new HardhatFhevmError(
+      `Cannot start a mock fhevm on network ${hre.network.name} which is a local fhevm node.`,
+    );
+  }
+  if (hre.fhevm.runtimeType !== HardhatFhevmRuntimeEnvironmentType.Mock) {
+    throw new HardhatFhevmError(
+      `Cannot start a mock fhevm on network ${hre.network.name}. This network does not support mock fhevm.`,
+    );
   }
 
-  const gatewayOwnerWallet = getGatewayOwnerWallet(hre);
-  const gatewayContract = (await getGatewayContract(hre)).connect(gatewayOwnerWallet);
+  const orig_sources_path = hre.config.paths.sources;
+  const logOptions = hre.fhevm.logOptions;
+  const provider = hre.ethers.provider;
+  const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
 
-  const relayerWalletAddress = hre.fhevm.gatewayRelayerWallet().address;
-  /* eslint-disable @typescript-eslint/ban-ts-comment */
-  //@ts-ignore
-  const tx = await gatewayContract.addRelayer(relayerWalletAddress);
-  const receipt = await tx.wait();
-  if (receipt!.status === 1) {
-    logDim(`Account ${relayerWalletAddress} was succesfully added as a gateway relayer`, hre.fhevm.logOptions);
+  // Clean if needed
+  const cleanOrBuild = zamaCleanOrBuildNeeded(contractsRootDir, ZamaDev, hre);
+  if (cleanOrBuild.clean) {
+    logTrace("rebuild needed!", hre.fhevm.logOptions);
+    await hre.run(TASK_CLEAN);
+  }
+
+  // Do nothing if `MockPrecompile.sol` is already deployed
+  const mockPrecompile: { address: string; deploy: boolean } = await hre.run(TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE);
+
+  // Do nothing if everything is already done
+  if (!cleanOrBuild.clean && !cleanOrBuild.build && !mockPrecompile.deploy) {
+    if (await zamaAreContractsDeployed(contractsRootDir, ZamaDev, provider, hre, logOptions)) {
+      logTrace("Contracts are already deployed", logOptions);
+      return;
+    }
+  }
+
+  await hre.run(TASK_FHEVM_COMPILE);
+
+  // Set the minimal balances
+  const adminAddresses = _getAdminAddresses(ZamaDev, hre);
+  if (await hre.fhevm.canSetBalance()) {
+    logTrace("setup accounts balance", logOptions);
+    await hre.fhevm.batchSetBalance(adminAddresses, DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG.accountsBalance);
   } else {
-    throw new HardhatFhevmError("Add gateway relayer failed.");
+    logTrace("cannot setup accounts balance", logOptions);
   }
+
+  const deployedContracts = await hre.run(TASK_FHEVM_DEPLOY, { provider });
+
+  // Make sure we are compiling the user contracts
+  assert(hre.config.paths.sources === orig_sources_path);
+
+  logTrace("compile contracts", logOptions);
+  await hre.run(TASK_COMPILE, { quiet: true });
+
+  logStartReport(deployedContracts, hre);
 });
-
-subtask(TASK_FHEVM_DEPLOY, async (_taskArgs, hre) => {
-  logTrace("deploy fhevm contracts", hre.fhevm.logOptions);
-  // Nonce == 0
-  const ACL = await hre.run(TASK_FHEVM_DEPLOY_ACL_CONTRACT);
-  // Nonce == 1
-  const TFHEExecutor = await hre.run(TASK_FHEVM_DEPLOY_TFHE_EXECUTOR_CONTRACT);
-  // Nonce == 2
-  const KMSVerifier = await hre.run(TASK_FHEVM_DEPLOY_KMS_VERIFIER_CONTRACT);
-  // Nonce == 0 (different deployer)
-  const GatewayContract = await hre.run(TASK_FHEVM_DEPLOY_GATEWAY_CONTRACT);
-
-  await hre.run(TASK_FHEVM_GATEWAY_ADD_RELAYER);
-
-  return {
-    ACL,
-    TFHEExecutor,
-    KMSVerifier,
-    GatewayContract,
-  };
-});
-
-////////////////////////////////////////////////////////////////////////////////
-// Start/Stop Local
-////////////////////////////////////////////////////////////////////////////////
 
 /**
  * Return false if already running, true if not
  */
-subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
-  if (!(await hre.fhevm.dockerServices().isDockerRunning())) {
+subtask(TASK_FHEVM_START_LOCAL).setAction(async ({}, hre) => {
+  if (!(await DockerServices.isDockerRunning())) {
     logBox("Docker is not running (or is in resource saving mode). Please start docker first.", hre.fhevm.logOptions);
     throw new HardhatFhevmError("Docker is not running (or is in resource saving mode). Please start docker first.");
   }
 
-  if (!hre.fhevm.isLocal()) {
-    logBox(
-      `Call 'npx hardhat --network ${LOCAL_FHEVM_NETWORK_NAME} ${SCOPE_FHEVM} ${SCOPE_FHEVM_TASK_START}' to start the local fhevm node`,
-      hre.fhevm.logOptions,
-    );
-    throw new HardhatFhevmError(
-      `Cannot start a fhevm local node on network '${hre.network.name}', use the '--network fhevm' instead or set 'defaultNetwork:"${LOCAL_FHEVM_NETWORK_NAME}"' in your hardhat config file.`,
-    );
-  }
+  await hre.fhevm.dockerServices.initWith(ZamaDev, hre.config.fhevmNode);
 
-  const cleanOrBuild = cleanOrBuildNeeded(hre);
-  const keysNotInstalled = keysInstallNeeded(hre);
+  const provider = hre.fhevm.dockerServices.jsonRpcProvider();
+  const logOptions = hre.fhevm.logOptions;
+  const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
+
+  const keysNotInstalled = keysInstallNeeded(hre.config.paths.fhevm);
 
   let deployed = false;
-  const fhevmIsRunning = await hre.fhevm.dockerServices().isFhevmRunning();
+  const fhevmIsRunning = await hre.fhevm.dockerServices.isFhevmRunning();
   if (fhevmIsRunning) {
-    deployed = await areFhevmContractsDeployed(hre);
+    deployed = await zamaAreContractsDeployed(contractsRootDir, ZamaDev, provider, hre, logOptions);
   }
+
+  const cleanOrBuild = zamaCleanOrBuildNeeded(contractsRootDir, ZamaDev, hre);
 
   if (fhevmIsRunning && !cleanOrBuild.clean && !keysNotInstalled && deployed) {
     if (cleanOrBuild.build) {
@@ -600,27 +538,35 @@ subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
 
   if (fhevmIsRunning) {
     if (keysNotInstalled) {
-      logTrace("Restart local fhevm node needed because keys are not installed.", hre.fhevm.logOptions);
+      logTrace("Restart local fhevm node needed because keys are not installed.", logOptions);
     }
   }
 
   if (cleanOrBuild.clean) {
-    logTrace("rebuild needed!", hre.fhevm.logOptions);
+    logTrace("rebuild needed!", logOptions);
     await hre.run(TASK_CLEAN);
   }
 
-  logBox("Starting local fhevm node... it might take some time.", hre.fhevm.logOptions);
+  logBox("Starting local fhevm node... it might take some time.", logOptions);
 
-  await hre.run(TASK_FHEVM_STOP);
+  await hre.run(TASK_FHEVM_STOP_LOCAL);
   await hre.run(TASK_FHEVM_COMPILE);
-  await hre.run(TASK_FHEVM_CREATE_KEYS);
   await hre.run(TASK_FHEVM_DOCKER_UP);
-  await hre.run(TASK_FHEVM_ACCOUNTS_SET_BALANCE);
 
-  const deployedContracts = await hre.run(TASK_FHEVM_DEPLOY);
+  const adminAddresses = _getAdminAddresses(ZamaDev, hre);
+
+  // Special case for admins
+  await hre.fhevm.dockerServices.setBalances(adminAddresses, DEFAULT_LOCAL_FHEVM_ACCOUNTS_CONFIG.accountsBalance);
+
+  const deployedContracts = await hre.run(TASK_FHEVM_DEPLOY, { provider });
 
   // Deploy any extra contract
-  await hre.run(TASK_FHEVM_DEPLOY_EXTRA);
+  await hre.run(TASK_FHEVM_DEPLOY_EXTRA, { provider });
+
+  const userAddresses = _getUserAddresses(ZamaDev, hre);
+
+  // Setup user balances with the 'accountsBalance' specified in the 'hardhat.config' + fhevmNode settings
+  await hre.fhevm.dockerServices.setBalances(userAddresses, hre.config.fhevmNode.accounts.accountsBalance);
 
   logStartReport(deployedContracts, hre);
 
@@ -632,63 +578,16 @@ subtask(TASK_FHEVM_START, async (_taskArgs, hre) => {
   return true;
 });
 
-subtask(TASK_FHEVM_STOP, async (_taskArgs, hre) => {
+/**
+ * Runs on any network
+ */
+subtask(TASK_FHEVM_STOP_LOCAL).setAction(async ({}, hre: HardhatRuntimeEnvironment) => {
+  if (!(await DockerServices.isDockerRunning())) {
+    logBox("Docker is not running (or is in resource saving mode). Please start docker first.", hre.fhevm.logOptions);
+    throw new HardhatFhevmError("Docker is not running (or is in resource saving mode). Please start docker first.");
+  }
+
   await hre.run(TASK_FHEVM_DOCKER_DOWN);
-  await hre.run(TASK_FHEVM_REMOVE_KEYS);
-});
-
-subtask(TASK_FHEVM_DEPLOY_EXTRA, async (_taskArgs, hre) => {
-  logTrace("compile gateway bug fix...", hre.fhevm.logOptions);
-
-  const dir = ____writeGatewayFirstRequestBugAvoider(hre);
-  await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
-
-  /**
-   * First decryption request bug
-   * ============================
-   * the function '____deployAndRunGatewayFirstRequestBugAvoider' is temporary
-   * should be removed when the gateway bug will be fixed
-   */
-  logTrace("deploy+run gateway bug fix...", hre.fhevm.logOptions);
-
-  await ____deployAndRunGatewayFirstRequestBugAvoider(hre);
-});
-
-////////////////////////////////////////////////////////////////////////////////
-// Start Mock
-////////////////////////////////////////////////////////////////////////////////
-
-subtask(TASK_FHEVM_START_MOCK, async (_taskArgs, hre) => {
-  const orig_sources_path = hre.config.paths.sources;
-
-  await hre.run(TASK_FHEVM_CLEAN_IF_NEEDED);
-  await hre.run(TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE);
-  await hre.run(TASK_FHEVM_COMPILE);
-  await hre.run(TASK_FHEVM_ACCOUNTS_SET_BALANCE);
-  const deployedContracts = await hre.run(TASK_FHEVM_DEPLOY);
-
-  logTrace("compile contracts", hre.fhevm.logOptions);
-  // Make sure we are compiling the user contracts
-  assert(hre.config.paths.sources === orig_sources_path);
-  await hre.run(TASK_COMPILE, { quiet: true });
-
-  logStartReport(deployedContracts, hre);
-});
-
-subtask(TASK_FHEVM_DEPLOY_MOCK_PRECOMPILE, async (_taskArgs, hre) => {
-  logTrace("compile fhevm mock coprocessor contract", hre.fhevm.logOptions);
-
-  // Compile MockedPrecompile.sol
-  const dir = writeMockedPrecompile(hre);
-  await hre.run(TASK_FHEVM_COMPILE_DIR, { dir });
-
-  // Deploy MockedPrecompile.sol
-  const targetAddress = EXT_TFHE_LIBRARY;
-  const NeverRevert = await hre.artifacts.readArtifact("MockedPrecompile");
-  const bytecode = NeverRevert.deployedBytecode;
-  await hre.network.provider.send("hardhat_setCode", [targetAddress, bytecode]);
-
-  logDim(`Code of Mocked Pre-compile set at address: ${targetAddress}`, hre.fhevm.logOptions);
 });
 
 function logStartReport(deployedContracts: Record<string, string>, hre: HardhatRuntimeEnvironment) {
@@ -696,34 +595,34 @@ function logStartReport(deployedContracts: Record<string, string>, hre: HardhatR
     return;
   }
 
-  const accounts = hre.config.networks.fhevm.accounts;
-  const col = 25;
+  // const accounts = hre.config.networks.fhevm.accounts;
+  // const col = 25;
 
-  const lo: LogOptions = hre.fhevm.logOptions;
+  // const lo: LogOptions = hre.fhevm.logOptions;
 
-  const v: FhevmContractName[] = ["ACL", "TFHEExecutor", "KMSVerifier", "GatewayContract"];
-  v.forEach((name: FhevmContractName) => {
-    const colName = `${name} owner:`.padEnd(col, " ");
-    const colAddr = getFhevmContractOwnerSigner(name, hre).address;
-    logDimWithGreenPrefix(colName, colAddr, lo);
-  });
+  // const v: FhevmContractName[] = ["ACL", "TFHEExecutor", "KMSVerifier", "GatewayContract"];
+  // v.forEach((name: FhevmContractName) => {
+  //   const colName = `${name} owner:`.padEnd(col, " ");
+  //   const colAddr = getFhevmContractOwnerSigner(name, hre).address;
+  //   logDimWithGreenPrefix(colName, colAddr, lo);
+  // });
 
-  logDimWithGreenPrefix(
-    "GatewayContract deployer:",
-    `${getGatewayDeployerWallet(hre).address} (index=${accounts.GatewayContractDeployer}`,
-    lo,
-  );
-  logDimWithGreenPrefix(
-    "GatewayContract relayer: ",
-    `${hre.fhevm.gatewayRelayerAddress()} (private key=${accounts.GatewayRelayerPrivateKey})`,
-    lo,
-  );
+  // logDimWithGreenPrefix(
+  //   "GatewayContract deployer:",
+  //   `${getGatewayDeployerWallet(hre).address} (index=${accounts.GatewayContractDeployer}`,
+  //   lo,
+  // );
+  // logDimWithGreenPrefix(
+  //   "GatewayContract relayer: ",
+  //   `${hre.fhevm.gatewayRelayerAddress()} (private key=${accounts.GatewayRelayerPrivateKey})`,
+  //   lo,
+  // );
 
-  v.forEach((name: FhevmContractName) => {
-    const colName = `${name} address:`.padEnd(col, " ");
-    const colAddr = deployedContracts[name];
-    logDimWithGreenPrefix(colName, colAddr, lo);
-  });
+  // v.forEach((name: FhevmContractName) => {
+  //   const colName = `${name} address:`.padEnd(col, " ");
+  //   const colAddr = deployedContracts[name];
+  //   logDimWithGreenPrefix(colName, colAddr, lo);
+  // });
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -738,17 +637,14 @@ const fhevmScope = scope(SCOPE_FHEVM, "Manage a fhevm node");
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_START)
+  .setDescription("Starts a local fhevm node")
   .addFlag("quiet", undefined)
   .addFlag("stderr", undefined)
-  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
+  .setAction(async ({ quiet, stderr }: HardhatFhevmRuntimeLogOptions, hre) => {
     hre.fhevm.logOptions = { quiet, stderr };
 
-    hre.fhevm.__enterForceLocal();
-
     // returns true if started, false if already running
-    const started = await hre.run(TASK_FHEVM_START);
-
-    hre.fhevm.__exitForceLocal();
+    const started = await hre.run(TASK_FHEVM_START_LOCAL);
 
     if (!started) {
       logTrace("fhevm already running.", hre.fhevm.logOptions);
@@ -757,89 +653,123 @@ fhevmScope
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_STOP)
+  .setDescription("Stops any running local fhevm node")
   .addFlag("quiet", undefined)
   .addFlag("stderr", undefined)
-  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
+  .setAction(async ({ quiet, stderr }: HardhatFhevmRuntimeLogOptions, hre) => {
     hre.fhevm.logOptions = { quiet, stderr };
-
-    hre.fhevm.__enterForceLocal();
-
-    await hre.run(TASK_FHEVM_STOP);
-
-    hre.fhevm.__exitForceLocal();
+    await hre.run(TASK_FHEVM_STOP_LOCAL);
   });
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_RESTART)
+  .setDescription("Restarts a local fhevm node.")
   .addFlag("quiet", undefined)
   .addFlag("stderr", undefined)
-  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
-    hre.fhevm.__enterForceLocal();
-
-    await hre.run(TASK_FHEVM_STOP, { quiet, stderr });
-    await hre.run(TASK_FHEVM_START, { quiet, stderr });
-
-    hre.fhevm.__exitForceLocal();
+  .setAction(async ({ quiet, stderr }: HardhatFhevmRuntimeLogOptions, hre) => {
+    await hre.run(TASK_FHEVM_STOP_LOCAL, { quiet, stderr });
+    await hre.run(TASK_FHEVM_START_LOCAL, { quiet, stderr });
   });
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_CLEAN)
   .addFlag("quiet", undefined)
   .addFlag("stderr", undefined)
-  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
+  .setAction(async ({ quiet, stderr }: HardhatFhevmRuntimeLogOptions, hre) => {
     await hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_STOP }, { quiet, stderr });
     logTrace(`remove directory: ${hre.config.paths.fhevm}`, hre.fhevm.logOptions);
     await rimraf(hre.config.paths.fhevm);
   });
 
+fhevmScope
+  .task(SCOPE_FHEVM_TASK_TEST)
+  .addFlag("quiet", undefined)
+  .addFlag("stderr", undefined)
+  .setAction(async ({ quiet, stderr }: HardhatFhevmRuntimeLogOptions, hre) => {
+    if (guessRuntimeType(hre.network.config) === HardhatFhevmRuntimeEnvironmentType.None) {
+      return;
+    }
+
+    hre.fhevm.logOptions = { quiet, stderr };
+
+    switch (hre.fhevm.runtimeType) {
+      case HardhatFhevmRuntimeEnvironmentType.Mock:
+        await hre.run(TASK_FHEVM_START_MOCK);
+        break;
+      case HardhatFhevmRuntimeEnvironmentType.Local:
+        throw new HardhatFhevmError(`Local fhevm network not supported`);
+      case HardhatFhevmRuntimeEnvironmentType.Zama:
+        throw new HardhatFhevmError(`Zama network not supported`);
+      default:
+        throw new HardhatFhevmError(`network ${hre.network.name} not supported`);
+    }
+  });
+
 ////////////////////////////////////////////////////////////////////////////////
-// Compile
+// Builtin task: Compile
 ////////////////////////////////////////////////////////////////////////////////
 
 task(TASK_COMPILE, async (_taskArgs, hre, runSuper) => {
-  if (HardhatFhevmRuntimeEnvironment.isUserRequested(hre)) {
-    await hre.run(TASK_FHEVM_WRITE_ALL_CONTRACTS, { force: false });
-  }
-
-  // No init needed at this point
-
+  await hre.run(TASK_FHEVM_INSTALL_SOLIDITY);
   return runSuper();
 });
 
 ////////////////////////////////////////////////////////////////////////////////
-// Test
+// Builtin task: Test
 ////////////////////////////////////////////////////////////////////////////////
-
-subtask(TASK_TEST_SETUP_TEST_ENVIRONMENT, async (_taskArgs, _hre, runSuper) => {
-  return runSuper();
-});
 
 task(TASK_TEST, async (_taskArgs, hre, runSuper) => {
-  await hre.run(TASK_FHEVM_SETUP, { quiet: false, stderr: false });
+  await hre.run(TASK_FHEVM_SETUP, {
+    quiet: hre.fhevm.logOptions.quiet === true,
+    stderr: hre.fhevm.logOptions.stderr === true,
+  });
   return runSuper();
 });
 
 subtask(TASK_FHEVM_SETUP)
   .addFlag("quiet", undefined)
   .addFlag("stderr", undefined)
-  .setAction(async ({ quiet, stderr }: FhevmRuntimeLogOptions, hre) => {
-    if (hre.fhevm.initialized) {
-      return;
-    }
-    if (!HardhatFhevmRuntimeEnvironment.isUserRequested(hre)) {
+  .setAction(async ({ quiet, stderr }: HardhatFhevmRuntimeLogOptions, hre) => {
+    if (guessRuntimeType(hre.network.config) === HardhatFhevmRuntimeEnvironmentType.None) {
       return;
     }
 
     hre.fhevm.logOptions = { quiet, stderr };
 
-    if (!(await isDeployed(hre.ethers.provider, hre.fhevm.ACLAddress()))) {
-      if (hre.fhevm.runtimeType() === FhevmRuntimeEnvironmentType.Mock) {
+    switch (hre.fhevm.runtimeType) {
+      case HardhatFhevmRuntimeEnvironmentType.Mock:
         await hre.run(TASK_FHEVM_START_MOCK);
-      } else {
-        await hre.run(TASK_FHEVM_START);
-      }
+        break;
+      case HardhatFhevmRuntimeEnvironmentType.Local:
+        await hre.run(TASK_FHEVM_START_LOCAL);
+        break;
+      case HardhatFhevmRuntimeEnvironmentType.Zama:
+        await hre.run(TASK_FHEVM_INSTALL_SOLIDITY);
+        break;
+      default:
+        break;
+    }
+  });
+
+task(TASK_FHEVM_INSTALL_SOLIDITY)
+  .setDescription("Install all the required fhevm solidity files associated with the selected network.")
+  .setAction(async ({}, hre) => {
+    const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
+
+    // Clean if needed
+    const cleanOrBuild = zamaCleanOrBuildNeeded(contractsRootDir, ZamaDev, hre);
+    if (cleanOrBuild.clean) {
+      logTrace("rebuild needed!", hre.fhevm.logOptions);
+      await hre.run(TASK_CLEAN);
     }
 
-    // Initialize fhevm runtime
-    await hre.fhevm.init();
+    // Write solidity files only
+    // No deploy needed, therefore, no need to compile anything at this point.
+    await zamaPrepareCompilationIfNeeded(
+      hre.network.config.useOnChainFhevmMockProcessor ?? false,
+      contractsRootDir,
+      hre.config.paths,
+      ZamaDev,
+      hre.fhevm.logOptions,
+    );
   });
