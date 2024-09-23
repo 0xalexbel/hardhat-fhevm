@@ -22,6 +22,7 @@
     "mocha": "mocha --exit --recursive",
     "test": "mocha --exit --recursive 'test/**/*.ci.test.ts'",
     "test:local": "mocha --exit --recursive 'test/**/local-fhevm-*.test.ts'",
+    "test:anvil": "mocha --exit --recursive 'test/**/anvil-*.test.ts'",
     "format": "prettier --write \"**/*.{ts,js}\"",
     "build": "tsc",
     "watch": "tsc -w",
