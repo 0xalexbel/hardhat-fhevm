@@ -10,8 +10,9 @@ describe("mock erc20 tests", function () {
 
   it("Mock_ERC20: TASK_TEST", async function () {
     this.hre.fhevm.logOptions = { quiet: true };
-    // By default, when running anvil, use on-chain mock
-    expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(false);
+    // By default, when running on hardhat, use on-chain mock
+    expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
+    this.hre.network.config.useOnChainFhevmMockProcessor = false;
     const [signer] = await this.hre.ethers.getSigners();
     // mnemonic= test test ... junk
     expect(signer.address).to.eq("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
@@ -22,8 +23,8 @@ describe("mock erc20 tests", function () {
 
   it("FastMock_ERC20: TASK_TEST", async function () {
     this.hre.fhevm.logOptions = { quiet: true };
-    // By default, when running anvil, use on-chain mock
-    expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(false);
+    // By default, when running on hardhat, use on-chain mock
+    expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
     this.hre.network.config.useOnChainFhevmMockProcessor = true;
     const [signer] = await this.hre.ethers.getSigners();
     // mnemonic= test test ... junk

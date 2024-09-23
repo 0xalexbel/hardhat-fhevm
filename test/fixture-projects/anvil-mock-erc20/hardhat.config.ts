@@ -15,7 +15,6 @@ const config: HardhatUserConfig = {
     myanvil: {
       url: "http://localhost:8545",
       chainId: 31337,
-      mockFhevm: true,
       accounts: {
         count: 10,
         mnemonic: "test test test test test test test test test test test junk",

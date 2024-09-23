@@ -14,7 +14,9 @@ describe("zamadev erc20 tasks tests", function () {
     this.hre.fhevm.logOptions = { quiet: true };
     expect(this.hre.network.config.chainId).is.eq(ZAMA_DEV_NETWORK_CONFIG.chainId);
     expect(this.hre.network.name).is.eq(ZAMA_DEV_NETWORK_NAME);
+    expect(this.hre.network.config.mockFhevm).is.eq(false);
     expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(false);
+
     const signers = await this.hre.ethers.getSigners();
     // account #0 from ZamaDev default mnemonic
     expect(signers[0].address).to.eq("0xa5e1defb98EFe38EBb2D958CEe052410247F4c80");
@@ -35,7 +37,7 @@ describe("zamadev erc20 tasks tests", function () {
 
   it("Zamadev_ERC20: TASK_TEST", async function () {
     this.hre.fhevm.logOptions = { quiet: true };
-    // By default, when running anvil, use on-chain mock
+    expect(this.hre.network.config.mockFhevm).is.eq(false);
     expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(false);
     const [signer] = await this.hre.ethers.getSigners();
     // account #0 from ZamaDev default mnemonic

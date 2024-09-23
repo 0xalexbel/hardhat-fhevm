@@ -28,7 +28,7 @@ describe("node mock erc20 tests", function () {
     expect(hre.fhevm.readACLAddress()).to.eq("0x2Fb4341027eb1d2aD8B5D9708187df8633cAFA92");
   }
 
-  async function test1(hre: HardhatRuntimeEnvironment) {
+  async function testFast(hre: HardhatRuntimeEnvironment) {
     hre.fhevm.logOptions = { quiet: true };
     // By default, when running standalone hardhat node, use on-chain mock
     expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
@@ -36,7 +36,7 @@ describe("node mock erc20 tests", function () {
     await checkAddresses(hre);
   }
 
-  async function test2(hre: HardhatRuntimeEnvironment) {
+  async function test(hre: HardhatRuntimeEnvironment) {
     hre.fhevm.logOptions = { quiet: true };
     // By default, when running standalone hardhat node, use on-chain mock
     expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
@@ -45,13 +45,13 @@ describe("node mock erc20 tests", function () {
     await checkAddresses(hre);
   }
 
-  it("NodeMockERC201: TASK_TEST", async function () {
-    runTest(this.hre, test1);
+  it("NodeMockFast_ERC20: TASK_TEST", async function () {
+    runTest(this.hre, testFast);
     await this.hre.run(TASK_NODE, { port: 8547 });
   });
 
-  it("NodeMockERC202: TASK_TEST", async function () {
-    runTest(this.hre, test2);
+  it("NodeMock_ERC20: TASK_TEST", async function () {
+    runTest(this.hre, test);
     await this.hre.run(TASK_NODE, { port: 8547 });
   });
 });

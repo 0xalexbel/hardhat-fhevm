@@ -156,6 +156,8 @@ extendConfig((config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) =>
     wsPort: userFhevmNode?.wsPort ?? DEFAULT_LOCAL_FHEVM_WS_PORT,
   };
 
+  const fhevmNodeUrl = `http://localhost:${fhevmNode.httpPort}`;
+
   // if "zamadev" network is not there, add the default config
   if (!userConfig.networks || !(ZAMA_DEV_NETWORK_NAME in userConfig.networks)) {
     config.networks[ZAMA_DEV_NETWORK_NAME] = ZAMA_DEV_NETWORK_CONFIG;
@@ -185,16 +187,23 @@ extendConfig((config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) =>
       const networks = userConfig.networks;
       if (networkName === HARDHAT_NETWORK_NAME) {
         const hh_network: HardhatNetworkUserConfig | undefined = networks[networkName];
-        config.networks[HARDHAT_NETWORK_NAME].mockFhevm = hh_network?.mockFhevm === true;
-        // By default : do not use on-chain mock processor on hardhat network
+        const enableMockFhevm = !(hh_network?.mockFhevm === false);
+        const enableOnChainFhevmMockProcessor = !(hh_network?.useOnChainFhevmMockProcessor === false);
+        // true by default
+        config.networks[HARDHAT_NETWORK_NAME].mockFhevm = enableMockFhevm;
+        // By default : use on-chain mock processor
         config.networks[HARDHAT_NETWORK_NAME].useOnChainFhevmMockProcessor =
-          hh_network?.useOnChainFhevmMockProcessor === true;
+          enableOnChainFhevmMockProcessor && enableMockFhevm;
       } else {
         const network: NetworkUserConfig | undefined = networks[networkName];
-        config.networks[networkName].mockFhevm = network?.mockFhevm === true;
-        // By default : always use on-chain mock processor on non-hardhat networks
-        config.networks[networkName].useOnChainFhevmMockProcessor =
-          network?.useOnChainFhevmMockProcessor !== false && config.networks[networkName].mockFhevm;
+        let isLocalFhevmNode =
+          network && "url" in network && network.url === fhevmNodeUrl && network.chainId === LOCAL_FHEVM_CHAIN_ID;
+        const enableMockFhevm = !(network?.mockFhevm === false) && !isLocalFhevmNode;
+        const enableOnChainFhevmMockProcessor = !(network?.useOnChainFhevmMockProcessor === false);
+        // true by default
+        config.networks[networkName].mockFhevm = enableMockFhevm;
+        // By default : use on-chain mock processor
+        config.networks[networkName].useOnChainFhevmMockProcessor = enableOnChainFhevmMockProcessor && enableMockFhevm;
       }
     }
   }
@@ -644,6 +653,7 @@ fhevmScope
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_STOP)
+  .setDescription("Stops any running local fhevm node")
   .addFlag("quiet", undefined)
   .addFlag("stderr", undefined)
   .setAction(async ({ quiet, stderr }: HardhatFhevmRuntimeLogOptions, hre) => {
@@ -653,6 +663,7 @@ fhevmScope
 
 fhevmScope
   .task(SCOPE_FHEVM_TASK_RESTART)
+  .setDescription("Restarts a local fhevm node.")
   .addFlag("quiet", undefined)
   .addFlag("stderr", undefined)
   .setAction(async ({ quiet, stderr }: HardhatFhevmRuntimeLogOptions, hre) => {

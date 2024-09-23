@@ -10,6 +10,8 @@ describe("local fhevm erc20 tests", function () {
   useEnvironment("local-fhevm-erc20");
   it("LocalFhevm_ERC20: TASK_TEST", async function () {
     expect(this.hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Local);
+    expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(false);
+    expect(this.hre.network.config.mockFhevm).is.eq(false);
 
     await this.hre.run({ scope: SCOPE_FHEVM, task: SCOPE_FHEVM_TASK_STOP });
 

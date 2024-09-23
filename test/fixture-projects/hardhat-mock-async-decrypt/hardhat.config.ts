@@ -19,7 +19,6 @@ const config: HardhatUserConfig = {
       //   auto: false,
       //   interval: 100,
       // },
-      mockFhevm: true,
       accounts: {
         count: 10,
         mnemonic: ZAMA_DEV_ACCOUNTS.mnemonic,

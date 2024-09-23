@@ -21,14 +21,14 @@ describe("node mock async decrypt tests", function () {
     );
   }
 
-  async function test1(hre: HardhatRuntimeEnvironment) {
+  async function testFast(hre: HardhatRuntimeEnvironment) {
     hre.fhevm.logOptions = { quiet: true };
     // By default, when running standalone hardhat node, use on-chain mock
     expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
     await hre.run(TASK_TEST);
   }
 
-  async function test2(hre: HardhatRuntimeEnvironment) {
+  async function test(hre: HardhatRuntimeEnvironment) {
     hre.fhevm.logOptions = { quiet: true };
     // By default, when running standalone hardhat node, use on-chain mock
     expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
@@ -36,13 +36,13 @@ describe("node mock async decrypt tests", function () {
     await hre.run(TASK_TEST);
   }
 
-  it("NodeMockAsyncDecrypt1: TASK_TEST", async function () {
-    runTest(this.hre, test1);
+  it("NodeMockFast_AsyncDecrypt: TASK_TEST", async function () {
+    runTest(this.hre, testFast);
     await this.hre.run(TASK_NODE);
   });
 
-  it("NodeMockAsyncDecrypt2: TASK_TEST", async function () {
-    runTest(this.hre, test2);
+  it("NodeMock_AsyncDecrypt: TASK_TEST", async function () {
+    runTest(this.hre, test);
     await this.hre.run(TASK_NODE);
   });
 });
