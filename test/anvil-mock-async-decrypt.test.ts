@@ -4,7 +4,7 @@ import { expect } from "chai";
 import { useEnvironment } from "./helpers";
 import { TASK_TEST } from "hardhat/builtin-tasks/task-names";
 
-describe("mock erc20 tests", function () {
+describe("anvil mock async decrypt tests", function () {
   useEnvironment("anvil-mock-async-decrypt");
 
   it("AnvilFastMock_AsyncDecrypt: TASK_TEST", async function () {

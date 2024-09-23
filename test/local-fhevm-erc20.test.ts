@@ -6,7 +6,7 @@ import { TASK_TEST } from "hardhat/builtin-tasks/task-names";
 import { HardhatFhevmRuntimeEnvironmentType } from "../src/common/HardhatFhevmRuntimeEnvironment";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_STOP } from "../src/task-names";
 
-describe("local tasks tests", function () {
+describe("local fhevm erc20 tests", function () {
   useEnvironment("local-fhevm-erc20");
   it("LocalFhevm_ERC20: TASK_TEST", async function () {
     expect(this.hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Local);

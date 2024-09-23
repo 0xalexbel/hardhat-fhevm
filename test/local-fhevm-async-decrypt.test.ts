@@ -6,7 +6,7 @@ import { TASK_TEST } from "hardhat/builtin-tasks/task-names";
 import { HardhatFhevmRuntimeEnvironmentType } from "../src/common/HardhatFhevmRuntimeEnvironment";
 import { SCOPE_FHEVM, SCOPE_FHEVM_TASK_STOP } from "../src/task-names";
 
-describe("local tasks tests", function () {
+describe("local fhevm async decrypt tests", function () {
   useEnvironment("local-fhevm-async-decrypt");
   it("LocalFhevm_AsyncDecrypt: TASK_TEST", async function () {
     expect(this.hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Local);

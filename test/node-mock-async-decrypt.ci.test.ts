@@ -5,7 +5,7 @@ import { useEnvironment } from "./helpers";
 import { TASK_NODE, TASK_NODE_SERVER_READY, TASK_TEST } from "hardhat/builtin-tasks/task-names";
 import { expect } from "chai";
 
-describe("mock tasks tests", function () {
+describe("node mock async decrypt tests", function () {
   useEnvironment("node-mock-async-decrypt");
 
   function runTest(hre: HardhatRuntimeEnvironment, testFunc: (hre: HardhatRuntimeEnvironment) => Promise<void>) {

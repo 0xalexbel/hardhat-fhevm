@@ -402,17 +402,17 @@ function _restoreOverridedSolFile(paths: ProjectPathsConfig) {
   const file = "fhevm/lib/TFHEExecutor.sol";
   const file_save = file + ".orig";
 
-  const src = path.join(paths.root, "node_modules", file_save);
+  const src_save = path.join(paths.root, "node_modules", file_save);
   const dst = path.join(paths.root, "node_modules", file);
 
   // if TFHEExecutor.sol.orig exists
   // rm TFHEExecutor.sol
   // cp TFHEExecutor.sol.orig TFHEExecutor.sol
-  if (fs.existsSync(src)) {
+  if (fs.existsSync(src_save)) {
     if (fs.existsSync(dst)) {
       fs.rmSync(dst);
     }
-    fs.copyFileSync(src, dst);
+    fs.copyFileSync(src_save, dst);
   }
 }
 
@@ -429,11 +429,13 @@ function _writeOverridesSolFile(paths: ProjectPathsConfig) {
   }
 
   if (!fs.existsSync(dst) && !fs.existsSync(dst_save)) {
+    // https://raw.githubusercontent.com/zama-ai/fhevm/92bb963aea278e7d3b4a51ed430bfd730a622eec/lib/TFHEExecutor.sol
     throw new HardhatFhevmError(`Corrupted fhevm package, please reinstall.`);
   }
 
+  // Keep a copy of the original file
   if (!fs.existsSync(dst_save)) {
-    fs.renameSync(src, dst_save);
+    fs.copyFileSync(dst, dst_save);
   }
 
   if (fs.existsSync(dst)) {

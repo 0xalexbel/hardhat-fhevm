@@ -9,7 +9,7 @@ import {
 } from "../src/task-names";
 import { useEnvironment } from "./helpers";
 
-describe("local tasks tests", function () {
+describe("local fhevm start/stop tests", function () {
   useEnvironment("local-fhevm-empty");
 
   it("LocalStartStop1: TASK_FHEVM_START", async function () {

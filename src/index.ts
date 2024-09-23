@@ -35,7 +35,6 @@ import {
   TASK_FHEVM_DOCKER_CONFIG,
   TASK_FHEVM_DOCKER_DOWN,
   TASK_FHEVM_DOCKER_UP,
-  TASK_FHEVM_INSTALL_ZAMA,
   TASK_FHEVM_START_LOCAL,
   TASK_FHEVM_START_MOCK,
   TASK_FHEVM_STOP_LOCAL,
@@ -70,10 +69,13 @@ import {
   SCOPE_FHEVM_TASK_STOP,
   SCOPE_FHEVM_TASK_TEST,
   TASK_FHEVM_SETUP,
+  TASK_FHEVM_INSTALL_SOLIDITY,
 } from "./task-names";
 import rimraf from "rimraf";
 import { DockerServices, LOCAL_FHEVM_CHAIN_ID } from "./common/DockerServices";
 import { walletFromMnemonic } from "./wallet";
+
+import "./type-extensions";
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -567,10 +569,6 @@ subtask(TASK_FHEVM_START_LOCAL).setAction(async ({}, hre) => {
   return true;
 });
 
-subtask(TASK_FHEVM_INSTALL_ZAMA).setAction(async ({}, hre) => {
-  // does nothing
-});
-
 /**
  * Runs on any network
  */
@@ -701,18 +699,7 @@ fhevmScope
 ////////////////////////////////////////////////////////////////////////////////
 
 task(TASK_COMPILE, async (_taskArgs, hre, runSuper) => {
-  const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
-
-  await zamaPrepareCompilationIfNeeded(
-    hre.network.config.useOnChainFhevmMockProcessor ?? false,
-    contractsRootDir,
-    hre.config.paths,
-    ZamaDev,
-    hre.fhevm.logOptions,
-  );
-
-  // No init needed at this point
-
+  await hre.run(TASK_FHEVM_INSTALL_SOLIDITY);
   return runSuper();
 });
 
@@ -736,10 +723,6 @@ subtask(TASK_FHEVM_SETUP)
       return;
     }
 
-    // if (hre.fhevm.initialized) {
-    //   return;
-    // }
-
     hre.fhevm.logOptions = { quiet, stderr };
 
     switch (hre.fhevm.runtimeType) {
@@ -750,12 +733,32 @@ subtask(TASK_FHEVM_SETUP)
         await hre.run(TASK_FHEVM_START_LOCAL);
         break;
       case HardhatFhevmRuntimeEnvironmentType.Zama:
-        await hre.run(TASK_FHEVM_INSTALL_ZAMA);
+        await hre.run(TASK_FHEVM_INSTALL_SOLIDITY);
         break;
       default:
         break;
     }
+  });
 
-    // // Initialize fhevm runtime
-    // await hre.fhevm.init();
+task(TASK_FHEVM_INSTALL_SOLIDITY)
+  .setDescription("Install all the required fhevm solidity files associated with the selected network.")
+  .setAction(async ({}, hre) => {
+    const contractsRootDir = getUserPackageNodeModulesDir(hre.config);
+
+    // Clean if needed
+    const cleanOrBuild = zamaCleanOrBuildNeeded(contractsRootDir, ZamaDev, hre);
+    if (cleanOrBuild.clean) {
+      logTrace("rebuild needed!", hre.fhevm.logOptions);
+      await hre.run(TASK_CLEAN);
+    }
+
+    // Write solidity files only
+    // No deploy needed, therefore, no need to compile anything at this point.
+    await zamaPrepareCompilationIfNeeded(
+      hre.network.config.useOnChainFhevmMockProcessor ?? false,
+      contractsRootDir,
+      hre.config.paths,
+      ZamaDev,
+      hre.fhevm.logOptions,
+    );
   });

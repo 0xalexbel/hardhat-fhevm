@@ -3,16 +3,16 @@
 import { useEnvironment } from "./helpers";
 import { isDeployed } from "../src/utils";
 import { expect } from "chai";
-import { ZAMA_DEV_NETWORK_NAME, ZamaDev } from "../src/constants";
+import { ZAMA_DEV_NETWORK_CONFIG, ZAMA_DEV_NETWORK_NAME, ZamaDev } from "../src/constants";
 import { getUserPackageNodeModulesDir, zamaReadContractAddressSync } from "../src/common/zamaContracts";
 import { TASK_TEST } from "hardhat/builtin-tasks/task-names";
 
-describe("zamadev tasks tests", function () {
+describe("zamadev erc20 tasks tests", function () {
   useEnvironment("zamadev-mock-erc20");
 
   it("Zamadev_ERC20: Check", async function () {
     this.hre.fhevm.logOptions = { quiet: true };
-    expect(this.hre.network.config.chainId).is.eq(9000);
+    expect(this.hre.network.config.chainId).is.eq(ZAMA_DEV_NETWORK_CONFIG.chainId);
     expect(this.hre.network.name).is.eq(ZAMA_DEV_NETWORK_NAME);
     expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(false);
     const signers = await this.hre.ethers.getSigners();

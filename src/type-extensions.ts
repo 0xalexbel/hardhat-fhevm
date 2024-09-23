@@ -28,7 +28,7 @@ declare module "hardhat/types/config" {
 
   export interface HardhatNetworkConfig {
     mockFhevm: boolean;
-    useOnChainFhevmMockProcessor?: boolean;
+    useOnChainFhevmMockProcessor: boolean;
   }
 
   export interface HttpNetworkUserConfig {

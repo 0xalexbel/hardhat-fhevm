@@ -45,7 +45,8 @@
     "rimraf": "^4.1.2",
     "sha3": "^2.1.4",
     "sqlite3": "^5.1.7",
-    "yaml": "^2.5.0"
+    "yaml": "^2.5.0",
+    "fs-extra": "^11.2.0"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ethers": "^3.0.0",

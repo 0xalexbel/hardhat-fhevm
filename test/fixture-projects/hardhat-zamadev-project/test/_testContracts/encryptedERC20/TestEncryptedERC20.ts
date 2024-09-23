@@ -27,7 +27,7 @@ describe("TestEncryptedERC20", function () {
     await transaction.wait();
 
     const balanceHandle = await erc20.balanceOf(signers.alice);
-    const balance = await hre.fhevm.decrypt64(balanceHandle);
+    const balance = await hre.fhevm.decrypt64(balanceHandle, erc20, signers.alice);
     expect(balance).to.equal(1000n);
 
     const totalSupply = await erc20.totalSupply();
@@ -52,12 +52,12 @@ describe("TestEncryptedERC20", function () {
 
     // Decrypt Alice's balance
     const balanceHandleAlice = await erc20.balanceOf(signers.alice);
-    const balanceAlice = await hre.fhevm.decrypt64(balanceHandleAlice);
+    const balanceAlice = await hre.fhevm.decrypt64(balanceHandleAlice, erc20, signers.alice);
     expect(balanceAlice).to.equal(BigInt(10000 - 1337));
 
     // Decrypt Bob's balance
     const balanceHandleBob = await erc20.balanceOf(signers.bob);
-    const balanceBob = await hre.fhevm.decrypt64(balanceHandleBob);
+    const balanceBob = await hre.fhevm.decrypt64(balanceHandleBob, erc20, signers.bob);
     expect(balanceBob).to.equal(1337n);
   });
 
@@ -114,12 +114,12 @@ describe("TestEncryptedERC20", function () {
 
     // Decrypt Alice's balance
     const balanceHandleAlice = await erc20.balanceOf(signers.alice);
-    const balanceAlice = await hre.fhevm.decrypt64(balanceHandleAlice);
+    const balanceAlice = await hre.fhevm.decrypt64(balanceHandleAlice, erc20, signers.alice);
     expect(balanceAlice).to.equal(1000n);
 
     // Decrypt Bob's balance
     const balanceHandleBob = await erc20.balanceOf(signers.bob);
-    const balanceBob = await hre.fhevm.decrypt64(balanceHandleBob);
+    const balanceBob = await hre.fhevm.decrypt64(balanceHandleBob, erc20, signers.bob);
     expect(balanceBob).to.equal(0n);
   });
 
@@ -154,12 +154,12 @@ describe("TestEncryptedERC20", function () {
 
     // Decrypt Alice's balance
     const balanceHandleAlice = await erc20.balanceOf(signers.alice);
-    const balanceAlice = await hre.fhevm.decrypt64(balanceHandleAlice);
+    const balanceAlice = await hre.fhevm.decrypt64(balanceHandleAlice, erc20, signers.alice);
     expect(balanceAlice).to.equal(10000n); // check that transfer did not happen, as expected
 
     // Decrypt Bob's balance
     const balanceHandleBob = await erc20.balanceOf(signers.bob);
-    const balanceBob = await hre.fhevm.decrypt64(balanceHandleBob);
+    const balanceBob = await hre.fhevm.decrypt64(balanceHandleBob, erc20, signers.bob);
     expect(balanceBob).to.equal(0n); // check that transfer did not happen, as expected
 
     const inputBob2 = instances.bob.createEncryptedInput(contractAddress, signers.bob.address);
@@ -178,12 +178,12 @@ describe("TestEncryptedERC20", function () {
 
     // Decrypt Alice's balance
     const balanceHandleAlice2 = await erc20.balanceOf(signers.alice);
-    const balanceAlice2 = await hre.fhevm.decrypt64(balanceHandleAlice2);
+    const balanceAlice2 = await hre.fhevm.decrypt64(balanceHandleAlice2, erc20, signers.alice);
     expect(balanceAlice2).to.equal(BigInt(10000 - 1337)); // check that transfer did happen this time
 
     // Decrypt Bob's balance
     const balanceHandleBob2 = await erc20.balanceOf(signers.bob);
-    const balanceBob2 = await hre.fhevm.decrypt64(balanceHandleBob2);
+    const balanceBob2 = await hre.fhevm.decrypt64(balanceHandleBob2, erc20, signers.bob);
     expect(balanceBob2).to.equal(1337n); // check that transfer did happen this time
   });
 });
