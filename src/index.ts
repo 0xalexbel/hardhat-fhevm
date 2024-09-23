@@ -196,7 +196,7 @@ extendConfig((config: HardhatConfig, userConfig: Readonly<HardhatUserConfig>) =>
           enableOnChainFhevmMockProcessor && enableMockFhevm;
       } else {
         const network: NetworkUserConfig | undefined = networks[networkName];
-        let isLocalFhevmNode =
+        const isLocalFhevmNode =
           network && "url" in network && network.url === fhevmNodeUrl && network.chainId === LOCAL_FHEVM_CHAIN_ID;
         const enableMockFhevm = !(network?.mockFhevm === false) && !isLocalFhevmNode;
         const enableOnChainFhevmMockProcessor = !(network?.useOnChainFhevmMockProcessor === false);
