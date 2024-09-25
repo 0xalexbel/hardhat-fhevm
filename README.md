@@ -2,7 +2,9 @@
 
 ![test workflow](https://github.com/0xalexbel/hardhat-fhevm/actions/workflows/ci.yml/badge.svg)
 
-A hardhat plugin to develop and test solidity programs using Zama's Fhevm.
+A hardhat plugin to develop and test solidity programs using Zama's Fhevm. 
+- Add Anvil/Hardhat node support.
+- Add Foundry/Forge support.
 
 ## Installation
 
@@ -57,6 +59,12 @@ to test your contracts in using the local fhevm node:
 
 ```bash
 npx hardhat --network fhevm test
+```
+
+to test your contracts in using Hardhat node or Anvil:
+
+```bash
+npx hardhat --network localhost test
 ```
 
 to compile your contracts in TFHE mock mode:
