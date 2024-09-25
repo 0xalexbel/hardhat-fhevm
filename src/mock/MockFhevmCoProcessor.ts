@@ -105,8 +105,57 @@ async function processLogs(trace, validSubcallsIndexes) {
             continue;
           }
 
-          const argsOffset = Number(`0x${state.stack.at(-4)}`);
-          const argsSize = Number(`0x${state.stack.at(-5)}`);
+          /* ANVIL
+{
+  pc: 6080,
+  op: 'CALL',
+  gas: 147587,
+  gasCost: 145322,
+  depth: 1,
+  error: 'CallOrCreate',
+  stack: [
+    '0xfb9d09c8',
+    '0x396',
+    '0x3e8',
+    '0x98c',
+    '0x0',
+    '0x3e8',
+    '0x0',
+    '0x100b',
+    '0x0',
+    '0x0',
+    '0x114b',
+    '0x0',
+    '0x5',
+    '0x0',
+    '0x5fd9b5efe0a996095f42ed7e77c390810cf660c',
+    '0xe71746b8',
+    '0xc4',
+    '0x20',
+    '0x80',
+    '0x44',
+    '0x80',
+    '0x0',
+    '0x5fd9b5efe0a996095f42ed7e77c390810cf660c',
+    '0x24083'
+  ]
+}         */
+          let argsOffset: number;
+          if (state.stack.at(-4)?.startsWith("0x")) {
+            argsOffset = Number(state.stack.at(-4));
+          } else {
+            argsOffset = Number(`0x${state.stack.at(-4)}`);
+          }
+
+          let argsSize: number;
+          if (state.stack.at(-5)?.startsWith("0x")) {
+            argsSize = Number(state.stack.at(-5));
+          } else {
+            argsSize = Number(`0x${state.stack.at(-5)}`);
+          }
+
+          //const argsOffset = Number(`0x${state.stack.at(-4)}`);
+          //const argsSize = Number(`0x${state.stack.at(-5)}`);
           const calldata = this.extractCalldata(state.memory, argsOffset, argsSize);
 
           const currentSelector = "0x" + calldata.slice(0, 8);

@@ -1,24 +1,28 @@
-import assert from "assert";
 import { ethers as EthersT } from "ethers";
 import { ResultCallbackProcessor, EventDecryptionEvent } from "../common/ResultCallbackProcessor";
 import { FhevmClearTextSolidityType, getHandleFhevmType } from "../common/handle";
-import { MockFhevmRuntimeEnvironment } from "./MockFhevmRuntimeEnvironment";
+import { MockFhevmProvider } from "./MockFhevmProvider";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { MapID } from "../common/RequestIDDB";
 import { getUserPackageNodeModulesDir, zamaGetContrat } from "../common/zamaContracts";
-import { HardhatFhevmRuntimeEnvironmentType } from "../common/HardhatFhevmRuntimeEnvironment";
 import { HardhatFhevmError } from "../error";
 import { ZamaDev } from "../constants";
 
 ///////////////////////////////////////////////////////////////////////////////
 
 export class MockResultCallbackProcessor extends ResultCallbackProcessor {
-  private acl: EthersT.Contract | undefined; //ACL | undefined;
-  private mockTriggeredRequestIDs: MapID<EventDecryptionEvent>;
+  private _acl: EthersT.Contract | undefined; //ACL | undefined;
+  private _mockTriggeredRequestIDs: MapID<EventDecryptionEvent>;
+  private _mockFhevmProvider: MockFhevmProvider;
 
-  constructor(hre: HardhatRuntimeEnvironment & { __SOLIDITY_COVERAGE_RUNNING?: boolean }) {
+  constructor(
+    mockFhevmProvider: MockFhevmProvider,
+    hre: HardhatRuntimeEnvironment & { __SOLIDITY_COVERAGE_RUNNING?: boolean },
+  ) {
     super(hre);
-    this.mockTriggeredRequestIDs = new MapID<EventDecryptionEvent>();
+    this._mockTriggeredRequestIDs = new MapID<EventDecryptionEvent>();
+    this._mockFhevmProvider = mockFhevmProvider;
+    this.___bug_version_0_7_1_skip_first_request = false;
   }
 
   override async init() {
@@ -27,28 +31,20 @@ export class MockResultCallbackProcessor extends ResultCallbackProcessor {
     const contractsRootDir = getUserPackageNodeModulesDir(this.hre.config);
     const provider = this.hre.ethers.provider;
 
-    this.acl = await zamaGetContrat("ACL", contractsRootDir, ZamaDev, provider, this.hre);
-  }
-
-  private mockRuntime(): MockFhevmRuntimeEnvironment {
-    if (this.hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Mock) {
-      assert(this.hre.fhevm instanceof MockFhevmRuntimeEnvironment);
-      return this.hre.fhevm;
-    }
-    throw new HardhatFhevmError("Unexpected runtime type");
+    this._acl = await zamaGetContrat("ACL", contractsRootDir, ZamaDev, provider, this.hre);
   }
 
   protected override tryRevertToBlockNumber(blockNum: number) {
     const request_ids_to_remove = this.getRequestIDsWithGreaterOrEqualBlockNumber(blockNum);
     super.tryRevertToBlockNumber(blockNum);
-    this.mockTriggeredRequestIDs.delete(request_ids_to_remove);
+    this._mockTriggeredRequestIDs.delete(request_ids_to_remove);
   }
 
   protected override async tryDecrypt(requestIDs: bigint[]) {
     for (let i = 0; i < requestIDs.length; ++i) {
       const pendingReq = this.getPendingRequestID(requestIDs[i])!;
-      if (!this.mockTriggeredRequestIDs.has(pendingReq)) {
-        this.mockTriggeredRequestIDs.push(pendingReq);
+      if (!this._mockTriggeredRequestIDs.has(pendingReq)) {
+        this._mockTriggeredRequestIDs.push(pendingReq);
         await this._mockTriggerEventDecryption(pendingReq);
       }
     }
@@ -56,7 +52,7 @@ export class MockResultCallbackProcessor extends ResultCallbackProcessor {
 
   private async _mockTriggerEventDecryption(eventDecryption: EventDecryptionEvent) {
     // in mocked mode, we trigger the decryption fulfillment manually
-    const acl = this.acl;
+    const acl = this._acl;
     if (!acl) {
       throw new HardhatFhevmError(`MockResultCallbackProcessor has not been initialized`);
     }
@@ -78,7 +74,9 @@ export class MockResultCallbackProcessor extends ResultCallbackProcessor {
     const typesList = eventDecryption.handles.map((handle) => getHandleFhevmType(handle));
     const types = typesList.map((num) => FhevmClearTextSolidityType[num]);
 
-    const values = await this.mockRuntime().batchDecryptBigInt(eventDecryption.handles.map((v) => EthersT.toBigInt(v)));
+    const values = await this._mockFhevmProvider.batchDecryptBigInt(
+      eventDecryption.handles.map((v) => EthersT.toBigInt(v)),
+    );
 
     // await this.mockRuntime().waitForCoprocessing();
     // const values = await Promise.all(

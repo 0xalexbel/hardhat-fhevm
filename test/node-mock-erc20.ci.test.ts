@@ -29,18 +29,25 @@ describe("node mock erc20 tests", function () {
   }
 
   async function testFast(hre: HardhatRuntimeEnvironment) {
-    hre.fhevm.logOptions = { quiet: true };
     // By default, when running standalone hardhat node, use on-chain mock
-    expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
+    expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(undefined);
+    expect(await hre.fhevm.useMockOnChainDecryption()).is.eq(true);
+
+    // Limitation : cannot modify config properties after first interaction with fhevm instance object.
+    hre.fhevm.logOptions = { quiet: true };
     await hre.run(TASK_TEST);
     await checkAddresses(hre);
   }
 
   async function test(hre: HardhatRuntimeEnvironment) {
-    hre.fhevm.logOptions = { quiet: true };
+    expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(undefined);
     // By default, when running standalone hardhat node, use on-chain mock
-    expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
+    // must be changed manually to use std mock
     hre.network.config.useOnChainFhevmMockProcessor = false;
+    expect(await hre.fhevm.useMockOnChainDecryption()).is.eq(false);
+
+    // Limitation : cannot modify config properties after first interaction with fhevm instance object.
+    hre.fhevm.logOptions = { quiet: true };
     await hre.run(TASK_TEST);
     await checkAddresses(hre);
   }

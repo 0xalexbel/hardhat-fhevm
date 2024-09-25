@@ -5,7 +5,7 @@ import { useEnvironment } from "./helpers";
 import { TASK_NODE, TASK_NODE_SERVER_READY, TASK_TEST } from "hardhat/builtin-tasks/task-names";
 import { expect } from "chai";
 
-describe("node mock async decrypt tests", function () {
+describe("node mock async decrypt tests BBBB", function () {
   useEnvironment("node-mock-async-decrypt");
 
   function runTest(hre: HardhatRuntimeEnvironment, testFunc: (hre: HardhatRuntimeEnvironment) => Promise<void>) {
@@ -22,17 +22,21 @@ describe("node mock async decrypt tests", function () {
   }
 
   async function testFast(hre: HardhatRuntimeEnvironment) {
-    hre.fhevm.logOptions = { quiet: true };
     // By default, when running standalone hardhat node, use on-chain mock
-    expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
+    expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(undefined);
+    expect(await hre.fhevm.useMockOnChainDecryption()).is.eq(true);
+
+    hre.fhevm.logOptions = { quiet: true };
     await hre.run(TASK_TEST);
   }
 
   async function test(hre: HardhatRuntimeEnvironment) {
-    hre.fhevm.logOptions = { quiet: true };
+    expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(undefined);
     // By default, when running standalone hardhat node, use on-chain mock
-    expect(hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
+    // must change manually to use standard mock
     hre.network.config.useOnChainFhevmMockProcessor = false;
+    expect(await hre.fhevm.useMockOnChainDecryption()).is.eq(false);
+    hre.fhevm.logOptions = { quiet: true };
     await hre.run(TASK_TEST);
   }
 

@@ -507,7 +507,7 @@ export class DockerServices {
         logDim(`rm -rf ${tmpDir}`, this.logOptions);
         await rimraf.rimraf(tmpDir);
       } catch {
-        /* eslint-disable no-empty*/
+        logDim(`Failed to execute: rm -rf ${tmpDir}`, this.logOptions);
       }
     }
   }

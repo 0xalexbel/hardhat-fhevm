@@ -17,6 +17,7 @@ import { deployContract, isDeployed, replaceStrings } from "../utils";
 import { ethers as EthersT } from "ethers";
 import { logDim, LogOptions, logTrace } from "../log";
 import { getImportsDir, getPackageDir, getPrecompileDir } from "../dirs";
+import { FhevmCompileOptions } from "../types";
 
 /**
  * Unused helper
@@ -758,7 +759,7 @@ contract GatewayFirstRequestBugAvoider is GatewayCaller {
 ////////////////////////////////////////////////////////////////////////////////
 
 export async function zamaPrepareCompilationIfNeeded(
-  useOnChainFhevmMockProcessor: boolean,
+  compileOptions: FhevmCompileOptions,
   contractsRootDir: string,
   paths: ProjectPathsConfig,
   config: ZamaDevConfig,
@@ -767,7 +768,7 @@ export async function zamaPrepareCompilationIfNeeded(
   const ifNeeded = true;
   _writeAllZamaContractsSync(ifNeeded, contractsRootDir, config, logOptions);
 
-  if (useOnChainFhevmMockProcessor) {
+  if (compileOptions.onChainFhevmMockProcessor) {
     _writeOverridesSolFile(paths);
   } else {
     _restoreOverridedSolFile(paths);

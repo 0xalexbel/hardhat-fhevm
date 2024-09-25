@@ -3,7 +3,6 @@ import assert from "assert";
 import hre from "hardhat";
 import { ethers } from "hardhat";
 import { HardhatFhevmInstance } from "../../../../src/index";
-export { HardhatFhevmRuntimeEnvironmentType } from "../../../../src/common/HardhatFhevmRuntimeEnvironment";
 
 export interface Signers {
   alice: HardhatEthersSigner;

@@ -8,7 +8,6 @@ import { HardhatFhevmError } from "../error";
 import { logBox, logDim, LogOptions } from "../log";
 import { RequestIDDB } from "./RequestIDDB";
 import { HardhatFhevmDecryption } from "../types";
-import { HardhatFhevmRuntimeEnvironmentType } from "./HardhatFhevmRuntimeEnvironment";
 import { getUserPackageNodeModulesDir, zamaGetContrat } from "./zamaContracts";
 import { ZamaDev } from "../constants";
 
@@ -45,6 +44,8 @@ export abstract class ResultCallbackProcessor {
   protected relayerWallet: ethers.Wallet;
   private eventResultCallbackInterface: ethers.Interface;
   private eventEventDecryptionInterface: ethers.Interface;
+  protected ___bug_version_0_7_1_skip_first_request: boolean;
+  private _isMock: boolean | undefined;
 
   protected _requestIDDB: RequestIDDB;
 
@@ -54,6 +55,7 @@ export abstract class ResultCallbackProcessor {
   constructor(hre: HardhatRuntimeEnvironment & { __SOLIDITY_COVERAGE_RUNNING?: boolean }) {
     this.hre = hre;
     this.relayerWallet = this.hre.fhevm.gatewayRelayerWallet();
+    this.___bug_version_0_7_1_skip_first_request = true;
 
     this.eventResultCallbackInterface = new hre.ethers.Interface([
       "event ResultCallback(uint256 indexed requestID, bool success, bytes result)",
@@ -74,8 +76,15 @@ export abstract class ResultCallbackProcessor {
     this.gatewayContract = await zamaGetContrat("GatewayContract", contractsRootDir, ZamaDev, provider, this.hre);
     this.gatewayContractAddress = await this.gatewayContract.getAddress();
     this._nextBlockNumberToPoll = await this.getBlockNumber();
+    this._isMock = await this.hre.fhevm.useMock();
 
     await this._traceGatewayEvents();
+  }
+
+  protected get isMock() {
+    // must be initialized!
+    assert(this._isMock !== undefined);
+    return this._isMock;
   }
 
   protected getRequestIDsWithGreaterOrEqualBlockNumber(blockNum: number) {
@@ -87,7 +96,7 @@ export abstract class ResultCallbackProcessor {
   }
 
   protected tryRevertToBlockNumber(blockNum: number) {
-    if (this.hre.fhevm.runtimeType !== HardhatFhevmRuntimeEnvironmentType.Mock) {
+    if (!this.isMock) {
       throw new HardhatFhevmError(`Received a past block number ${blockNum}. Revert is only supported in mock mode.`);
     }
 
@@ -122,7 +131,6 @@ export abstract class ResultCallbackProcessor {
       }
 
       this.logDim(`[Block:${currentBlockNumber}] still ${n_pending} pending request ids. Wait one block needed.`);
-      //await waitNBlocks(1, this.hre);
       await this.hre.fhevm.waitNBlocks(1);
 
       // For debug purpose
@@ -172,7 +180,6 @@ export abstract class ResultCallbackProcessor {
 
     const logOptions: LogOptions = { ...this.hre.fhevm.logOptions, indent: "  " };
 
-    /* eslint-disable no-constant-condition */
     while (poll_count < 100) {
       poll_count++;
 
@@ -399,7 +406,7 @@ export abstract class ResultCallbackProcessor {
       FHEVM: v0.7.1 = very first request of decryption always fails at the moment due to a gateway bug
 
       */
-      if (evt.requestID === BigInt(0)) {
+      if (evt.requestID === BigInt(0) && this.___bug_version_0_7_1_skip_first_request) {
         // Skipp first request because of bug
         this.logBox("Must skip requestID === 0 : Bug in version 0.7.1");
         continue;

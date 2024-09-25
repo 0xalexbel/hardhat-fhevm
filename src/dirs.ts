@@ -19,7 +19,6 @@ export function getPackageDir() {
   const root = path.parse(process.cwd()).root;
   let p = __dirname;
 
-  /* eslint-disable no-constant-condition */
   while (true) {
     if (fs.existsSync(path.join(p, "package.json"))) {
       break;

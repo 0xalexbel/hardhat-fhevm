@@ -490,6 +490,10 @@ contract TFHEExecutor {
         db[result] = (clearCt ^ type(uint256).max) & MAX_UINT[ctType];
     }
 
+    function bytesToBytes1(bytes memory b, uint offset) private pure returns (bytes1) {
+        return bytes1(b[offset] & 0xFF);
+    }
+
     function bytesToBytes8(bytes memory b, uint offset) private pure returns (bytes8) {
         bytes8 out;
 
@@ -519,13 +523,16 @@ contract TFHEExecutor {
 
         // extract handle type
         uint8 typeCt = uint8(inputProof[0]);
-        require(typeCt == 5, "Only uint64 are supported");
+        //require(typeCt == 5 || typeCt == 0, "Only uint64 and bool are supported");
+        require(typeCt == 5, "Only uint64 and bool are supported");
 
-        if (typeCt == 5) {
-            uint64 clearUint64 = uint64(bytesToBytes8(inputProof, 1));
-            dbSaveCount++;
-            db[result] = clearUint64;
+        if (typeCt == 1) {
+            db[result] = uint8(bytesToBytes1(inputProof, 1));
+        } else if (typeCt == 5) {
+            db[result] = uint64(bytesToBytes8(inputProof, 1));
         }
+
+        dbSaveCount++;
         acl.allowTransient(result, msg.sender);
     }
     function cast(uint256 ct, bytes1 toType) external returns (uint256 result) {

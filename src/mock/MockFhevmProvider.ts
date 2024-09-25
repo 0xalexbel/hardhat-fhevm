@@ -1,10 +1,6 @@
 import { ethers as EthersT } from "ethers";
 import assert from "assert";
 import { HardhatRuntimeEnvironment } from "hardhat/types";
-import {
-  HardhatFhevmRuntimeEnvironment,
-  HardhatFhevmRuntimeEnvironmentType,
-} from "../common/HardhatFhevmRuntimeEnvironment";
 import { HardhatFhevmError } from "../error";
 import { MockFhevmCoProcessor } from "./MockFhevmCoProcessor";
 import { MockFhevmInstance } from "./MockFhevmInstance";
@@ -13,23 +9,17 @@ import { MockResultCallbackProcessor } from "./MockResultCallbackProcessor";
 import { ResultCallbackProcessor } from "../common/ResultCallbackProcessor";
 import { getUserPackageNodeModulesDir, zamaGetContrat } from "../common/zamaContracts";
 import { ZamaDev } from "../constants";
+import { HardhatFhevmProvider } from "../common/HardhatFhevmProvider";
+import { FhevmProviderInfos } from "../common/FhevmProviderInfos";
 
-export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment {
+export class MockFhevmProvider extends HardhatFhevmProvider {
   private _coprocessor: MockFhevmCoProcessor | undefined;
   private _resultprocessor: MockResultCallbackProcessor | undefined;
   private _executor: EthersT.Contract | undefined;
   private _executorHasMockDB: boolean | undefined;
 
-  constructor(hre: HardhatRuntimeEnvironment) {
-    super(HardhatFhevmRuntimeEnvironmentType.Mock, hre);
-  }
-
-  public static cast(fhevm: HardhatFhevmRuntimeEnvironment): MockFhevmRuntimeEnvironment {
-    if (fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Mock) {
-      assert(fhevm instanceof MockFhevmRuntimeEnvironment);
-      return fhevm;
-    }
-    throw new HardhatFhevmError(`fhevm is not an instance of MockFhevmRuntimeEnvironment`);
+  constructor(fhevmProviderInfos: FhevmProviderInfos, hre: HardhatRuntimeEnvironment) {
+    super(fhevmProviderInfos, hre);
   }
 
   private async executorHasMockDB() {
@@ -39,7 +29,7 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
         // Dummy call to check if using a mock db
         /*const dbSaveCount =*/ await executor.dbSaveCount();
         this._executorHasMockDB = true;
-      } catch (e) {
+      } catch {
         this._executorHasMockDB = false;
       }
     }
@@ -55,9 +45,9 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     return this._executor;
   }
 
-  protected async resultprocessor(): Promise<ResultCallbackProcessor> {
+  public async resultprocessor(): Promise<ResultCallbackProcessor> {
     if (!this._resultprocessor) {
-      this._resultprocessor = new MockResultCallbackProcessor(this.hre);
+      this._resultprocessor = new MockResultCallbackProcessor(this, this.hre);
       await this._resultprocessor.init();
     }
     return this._resultprocessor;
@@ -74,24 +64,27 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
   }
 
   public async waitForCoprocessing() {
-    assert(!this.hre.network.config.useOnChainFhevmMockProcessor);
     const coproc = await this.coprocessor();
     await coproc.wait();
   }
 
   public async queryClearText(handle: EthersT.BigNumberish): Promise<bigint> {
-    assert(!this.hre.network.config.useOnChainFhevmMockProcessor);
     const coproc = await this.coprocessor();
     const bn = await coproc.handleDB().queryClearTextFromBigInt(EthersT.toBigInt(handle));
     return bn;
   }
 
   public async createInstance(): Promise<MockFhevmInstance> {
-    return MockFhevmInstance.create(this.hre);
+    return MockFhevmInstance.create(this);
   }
 
   public async batchDecryptBigInt(handles: bigint[]): Promise<bigint[]> {
-    if ((await this.executorHasMockDB()) && this.hre.network.config.useOnChainFhevmMockProcessor) {
+    if (await this.infos.useMockOnChainDecryption()) {
+      const hasOnChainMockDB = await this.executorHasMockDB();
+      if (!hasOnChainMockDB) {
+        throw new HardhatFhevmError(`Fhevm contracts where not properly deployed. Full re-deployment is required.`);
+      }
+
       const executor = await this.executor();
       const savedClearBNs = await Promise.all(handles.map(async (handle) => BigInt(await executor.db(handle))));
       return savedClearBNs;
@@ -102,14 +95,20 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     }
   }
 
-  public async decryptBigInt(
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  public async decryptMockHandle(
     handle: bigint,
     contract: EthersT.AddressLike,
     user: EthersT.AddressLike,
   ): Promise<bigint> {
-    await this.throwIfCanNotDecrypt(handle, contract, user);
+    // Must be ready
+    await this.infos.throwIfNotReady();
 
-    if ((await this.executorHasMockDB()) && this.hre.network.config.useOnChainFhevmMockProcessor) {
+    if (await this.infos.useMockOnChainDecryption()) {
+      const hasOnChainMockDB = await this.executorHasMockDB();
+      if (!hasOnChainMockDB) {
+        throw new HardhatFhevmError(`Fhevm contracts where not properly deployed. Full re-deployment is required.`);
+      }
       const executor = await this.executor();
       const savedClearBN = await executor.db(handle);
       return savedClearBN;
@@ -120,9 +119,13 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     }
   }
 
-  public async decryptBool(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<boolean> {
-    const bn = await this.decryptBigInt(handle, contract, signer);
-    return bn === BigInt(1);
+  public override async decryptBool(
+    handle: bigint,
+    contract: EthersT.AddressLike,
+    signer: EthersT.Signer,
+  ): Promise<boolean> {
+    const clear = await this.decryptMockHandle(handle, contract, signer);
+    return clear === BigInt(1);
   }
 
   public override async decrypt4(
@@ -130,8 +133,8 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     contract: EthersT.AddressLike,
     signer: EthersT.Signer,
   ): Promise<bigint> {
-    const bn = await this.decryptBigInt(handle, contract, signer);
-    return bn;
+    const clear = await this.decryptMockHandle(handle, contract, signer);
+    return clear;
   }
 
   public override async decrypt8(
@@ -139,8 +142,8 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     contract: EthersT.AddressLike,
     signer: EthersT.Signer,
   ): Promise<bigint> {
-    const bn = await this.decryptBigInt(handle, contract, signer);
-    return bn;
+    const clear = await this.decryptMockHandle(handle, contract, signer);
+    return clear;
   }
 
   public override async decrypt16(
@@ -148,8 +151,8 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     contract: EthersT.AddressLike,
     signer: EthersT.Signer,
   ): Promise<bigint> {
-    const bn = await this.decryptBigInt(handle, contract, signer);
-    return bn;
+    const clear = await this.decryptMockHandle(handle, contract, signer);
+    return clear;
   }
 
   public override async decrypt32(
@@ -157,13 +160,17 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     contract: EthersT.AddressLike,
     signer: EthersT.Signer,
   ): Promise<bigint> {
-    const bn = await this.decryptBigInt(handle, contract, signer);
-    return bn;
+    const clear = await this.decryptMockHandle(handle, contract, signer);
+    return clear;
   }
 
-  public async decrypt64(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
-    const bn = await this.decryptBigInt(handle, contract, signer);
-    return bn;
+  public override async decrypt64(
+    handle: bigint,
+    contract: EthersT.AddressLike,
+    signer: EthersT.Signer,
+  ): Promise<bigint> {
+    const clear = await this.decryptMockHandle(handle, contract, signer);
+    return clear;
   }
 
   public override async decryptAddress(
@@ -171,13 +178,13 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     contract: EthersT.AddressLike,
     signer: EthersT.Signer,
   ): Promise<string> {
-    const bn = await this.decryptBigInt(handle, contract, signer);
-    return bigIntToAddress(bn);
+    const clear = await this.decryptMockHandle(handle, contract, signer);
+    return bigIntToAddress(clear);
   }
 
   public async canSetBalance(): Promise<boolean> {
-    const pi = await this.getProviderInfos();
-    return pi.setBalance !== undefined;
+    const mth = await this.infos.getRpcMethods();
+    return mth.setBalance !== undefined;
   }
 
   private async _setBalance(address: string, amount: string, rpc_method_name: string) {
@@ -204,9 +211,13 @@ export class MockFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
   }
 
   public async batchSetBalance(addresses: Array<string>, amount: string) {
-    const pi = await this.getProviderInfos();
-    const rpc_method_name = pi.setBalance;
+    const mth = await this.infos.getRpcMethods();
+    const rpc_method_name = mth.setBalance;
     assert(rpc_method_name);
     await Promise.all(addresses.map((a) => this._setBalance(a, amount, rpc_method_name)));
+  }
+
+  public override async isRunning(): Promise<boolean> {
+    return true;
   }
 }

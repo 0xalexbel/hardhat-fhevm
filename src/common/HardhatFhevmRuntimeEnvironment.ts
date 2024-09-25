@@ -1,40 +1,25 @@
-import assert from "assert";
 import { ethers as EthersT } from "ethers";
 import { HardhatFhevmDecryption } from "../types";
-import { EthereumProvider, HardhatRuntimeEnvironment } from "hardhat/types";
-import { HardhatFhevmProviderInfos, HardhatFhevmRuntimeLogOptions } from "../types";
-import { DockerServices } from "./DockerServices";
+import { HardhatRuntimeEnvironment, NetworkConfig } from "hardhat/types";
+import { HardhatFhevmRuntimeLogOptions } from "../types";
 import { HardhatFhevmInstance } from "./HardhatFhevmInstance";
-import { ResultCallbackProcessor } from "./ResultCallbackProcessor";
-import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
-import { logDim, LogOptions } from "../log";
 import { getUserPackageNodeModulesDir, zamaGetContrat, zamaReadContractAddressSync } from "./zamaContracts";
 import { ZamaDev } from "../constants";
 import { HardhatFhevmError } from "../error";
+import { HardhatFhevmProviderCapabilities, FhevmProviderInfos, HardhatFhevmRpcMethods } from "./FhevmProviderInfos";
+import { HardhatFhevmProvider } from "./HardhatFhevmProvider";
+import { HardhatFhevmProviderType } from "./HardhatFhevmProviderType";
 
-export enum HardhatFhevmRuntimeEnvironmentType {
-  None = 0,
-  Local,
-  Mock,
-  Zama,
-}
-
-export abstract class HardhatFhevmRuntimeEnvironment {
-  protected hre: HardhatRuntimeEnvironment;
-  private type: HardhatFhevmRuntimeEnvironmentType;
-  private _dockerServices: DockerServices;
+export class HardhatFhevmRuntimeEnvironment {
+  private _hre: HardhatRuntimeEnvironment;
+  private _fhevmProviderInfos: FhevmProviderInfos;
   private _logOptions: HardhatFhevmRuntimeLogOptions;
-  private _providerInfos: HardhatFhevmProviderInfos | undefined;
+  private _inner: HardhatFhevmProvider | undefined;
 
-  constructor(type: HardhatFhevmRuntimeEnvironmentType, hre: HardhatRuntimeEnvironment) {
-    this.hre = hre;
-    this.type = type;
+  constructor(hre: HardhatRuntimeEnvironment) {
+    this._hre = hre;
     this._logOptions = { quiet: false, stderr: true };
-    this._dockerServices = new DockerServices(hre, { ...this._logOptions });
-  }
-
-  public get runtimeType(): HardhatFhevmRuntimeEnvironmentType {
-    return this.type;
+    this._fhevmProviderInfos = new FhevmProviderInfos(hre.network.name, hre);
   }
 
   public get logOptions() {
@@ -45,204 +30,185 @@ export abstract class HardhatFhevmRuntimeEnvironment {
     this._logOptions = { ...lo };
   }
 
-  public get dockerServices() {
-    return this._dockerServices;
-  }
-
   public gatewayRelayerWallet(provider?: null | EthersT.Provider) {
-    return new EthersT.Wallet(this.hre.config.fhevmNode.gatewayRelayerPrivateKey, provider ?? this.hre.ethers.provider);
+    return new EthersT.Wallet(
+      this._hre.config.fhevmNode.gatewayRelayerPrivateKey,
+      provider ?? this._hre.ethers.provider,
+    );
   }
 
-  public async getProviderInfos(): Promise<HardhatFhevmProviderInfos> {
-    if (this._providerInfos) {
-      return this._providerInfos;
-    }
+  public get networkName(): string {
+    return this._fhevmProviderInfos.networkName;
+  }
 
-    const pi: HardhatFhevmProviderInfos = {
-      setBalance: undefined,
-      setCode: undefined,
-      mine: undefined,
-    };
+  public get networkConfig(): NetworkConfig {
+    return this._hre.config.networks[this.networkName];
+  }
 
-    const eth_provider = this.hre.network.provider;
+  public async getChainId(): Promise<number> {
+    const cid = await this._fhevmProviderInfos.getChainId();
+    return cid;
+  }
 
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const send_ops: Array<{ name: keyof HardhatFhevmProviderInfos; method: string; args: any[] }> = [
-      { name: "setCode", method: "anvil_setCode", args: [EthersT.ZeroAddress, EthersT.ZeroHash] },
-      { name: "setCode", method: "hardhat_setCode", args: [EthersT.ZeroAddress, EthersT.ZeroHash] },
-      { name: "setBalance", method: "anvil_setBalance", args: [EthersT.ZeroAddress, EthersT.toQuantity(1234)] },
-      { name: "setBalance", method: "hardhat_setBalance", args: [EthersT.ZeroAddress, EthersT.toQuantity(1234)] },
-      { name: "mine", method: "anvil_mine", args: ["0x0"] },
-      { name: "mine", method: "hardhat_mine", args: ["0x0"] },
-    ];
-
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    async function checkOp(op: {
-      name: keyof HardhatFhevmProviderInfos;
-      method: string;
-      args: any[];
-    }): Promise<boolean> {
-      try {
-        await eth_provider.send(op.method, op.args);
-        return true;
-      } catch (e) {
-        assert(e instanceof Error);
-        assert(e.message);
-        assert(e.message === `Method ${op.method} is not supported`, e.message);
-      }
+  public async isRunning(): Promise<boolean> {
+    let ok = await this._fhevmProviderInfos.isRunning();
+    if (!ok) {
       return false;
     }
+    const inner = await this.inner();
+    ok = await inner.isRunning();
 
-    const ok = await Promise.all(send_ops.map((op) => checkOp(op)));
-    for (let i = 0; i < ok.length; ++i) {
-      if (ok[i]) {
-        pi[send_ops[i].name] = send_ops[i].method;
-      }
-    }
-
-    this._providerInfos = pi;
-    return this._providerInfos;
+    return ok;
   }
 
-  protected abstract resultprocessor(): Promise<ResultCallbackProcessor>;
+  public async isReady(): Promise<boolean> {
+    const isReady = await this._fhevmProviderInfos.isReady();
+    return isReady;
+  }
 
-  public abstract createInstance(): Promise<HardhatFhevmInstance>;
-  public abstract decryptBool(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<boolean>;
-  public abstract decrypt4(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint>;
-  public abstract decrypt8(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint>;
-  public abstract decrypt16(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint>;
-  public abstract decrypt32(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint>;
-  public abstract decrypt64(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint>;
-  public abstract decryptAddress(
-    handle: bigint,
-    contract: EthersT.AddressLike,
-    signer: EthersT.Signer,
-  ): Promise<string>;
+  public async getProviderType(): Promise<HardhatFhevmProviderType> {
+    const pt = await this._fhevmProviderInfos.getProviderType();
+    return pt;
+  }
+
+  public async getProviderRpcMethods(): Promise<HardhatFhevmRpcMethods> {
+    const mth = await this._fhevmProviderInfos.getRpcMethods();
+    return mth;
+  }
+
+  public async getProviderCapabilities(): Promise<HardhatFhevmProviderCapabilities> {
+    const caps = await this._fhevmProviderInfos.getCapabilities();
+    return caps;
+  }
+
+  public async useMock(): Promise<boolean> {
+    const ok = await this._fhevmProviderInfos.useMock();
+    return ok;
+  }
+
+  public async useMockOnChainDecryption(): Promise<boolean> {
+    const ok = await this._fhevmProviderInfos.useMockOnChainDecryption();
+    return ok;
+  }
+
+  /**
+   * Network must be ready
+   */
+  private async inner(): Promise<HardhatFhevmProvider> {
+    if (!this._inner) {
+      this._inner = await this._fhevmProviderInfos.createNewFhevmProvider();
+    }
+    return this._inner;
+  }
+
+  public setReady() {
+    this._fhevmProviderInfos.setReady();
+  }
+
+  public async canSetBalance(): Promise<boolean> {
+    const inner = await this.inner();
+    return inner.canSetBalance();
+  }
+
+  public async batchSetBalance(addresses: Array<string>, amount: string): Promise<void> {
+    const inner = await this.inner();
+    await inner.batchSetBalance(addresses, amount);
+  }
+
+  public async createInstance(): Promise<HardhatFhevmInstance> {
+    const inner = await this.inner();
+    return inner.createInstance();
+  }
+
+  public async decryptBool(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<boolean> {
+    const inner = await this.inner();
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    return inner.decryptBool(handle, contract, signer);
+  }
+
+  public async decrypt4(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    const inner = await this.inner();
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    return inner.decrypt4(handle, contract, signer);
+  }
+
+  public async decrypt8(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    const inner = await this.inner();
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    return inner.decrypt8(handle, contract, signer);
+  }
+
+  public async decrypt16(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    const inner = await this.inner();
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    return inner.decrypt16(handle, contract, signer);
+  }
+
+  public async decrypt32(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    const inner = await this.inner();
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    return inner.decrypt32(handle, contract, signer);
+  }
+
+  public async decrypt64(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<bigint> {
+    const inner = await this.inner();
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    return inner.decrypt64(handle, contract, signer);
+  }
+
+  public async decryptAddress(handle: bigint, contract: EthersT.AddressLike, signer: EthersT.Signer): Promise<string> {
+    const inner = await this.inner();
+    await this.throwIfCanNotDecrypt(handle, contract, signer);
+    return inner.decryptAddress(handle, contract, signer);
+  }
 
   public async createEncryptedInput(contract: EthersT.AddressLike, user: EthersT.AddressLike) {
     const instance = await this.createInstance();
-    const contractAddr = await EthersT.resolveAddress(contract, this.hre.ethers.provider);
-    const userAddr = await EthersT.resolveAddress(user, this.hre.ethers.provider);
+    const contractAddr = await EthersT.resolveAddress(contract, this._hre.ethers.provider);
+    const userAddr = await EthersT.resolveAddress(user, this._hre.ethers.provider);
     return instance.createEncryptedInput(contractAddr, userAddr);
   }
 
-  public abstract canSetBalance(): Promise<boolean>;
-  public abstract batchSetBalance(addresses: Array<string>, amount: string): Promise<void>;
-
   public async waitForAllDecryptions(): Promise<HardhatFhevmDecryption[]> {
-    const rp = await this.resultprocessor();
-    const decs = await rp.waitForDecryptions();
-    return decs;
+    const inner = await this.inner();
+    return await inner.waitForAllDecryptions();
+  }
+
+  public async waitForTransactionDecryptions(tx: EthersT.ContractTransactionResponse): Promise<{
+    receipt: EthersT.ContractTransactionReceipt;
+    results: HardhatFhevmDecryption[];
+  } | null> {
+    const inner = await this.inner();
+    return await inner.waitForTransactionDecryptions(tx);
   }
 
   public async waitNBlocks(nBlocks: number) {
-    if (nBlocks <= 0) {
-      return;
-    }
-
-    // Local functions: force new block by sending a blank transaction
-    async function _sendZeroTx(blockCount: number, signer: HardhatEthersSigner, logOptions: LogOptions) {
-      while (blockCount > 0) {
-        blockCount--;
-        logDim(`Wait one block, send empty tx`, logOptions);
-        const receipt = await signer.sendTransaction({
-          to: EthersT.ZeroAddress,
-          value: 0n,
-        });
-        await receipt.wait();
-      }
-    }
-
-    // Local functions: force new block calling hardhat_mine or anvil_mine
-    async function _callMine(
-      blockCount: number,
-      ethProvider: EthereumProvider,
-      method: string,
-      logOptions: LogOptions,
-    ) {
-      while (blockCount > 0) {
-        blockCount--;
-        logDim(`Wait one block, call ${method}`, logOptions);
-        // mine only one block does not work when network == built-in hardhat network
-        await ethProvider.send(method, ["0x1"]);
-      }
-    }
-
-    const pi = await this.getProviderInfos();
-    const provider: EthersT.Provider = this.hre.ethers.provider;
-    const eth_provider: EthereumProvider = this.hre.network.provider;
-    const runtimeType = this.runtimeType;
-    const lo: LogOptions = this.logOptions;
-
-    const mine = pi.mine;
-    if (mine) {
-      // use built-in mine request
-      await _callMine(nBlocks, eth_provider, mine, lo);
-      return;
-    }
-
-    // mine manually
-    let signer: HardhatEthersSigner | undefined;
-    if (runtimeType === HardhatFhevmRuntimeEnvironmentType.Mock) {
-      const signers = await this.hre.ethers.getSigners();
-      signer = signers[0];
-      assert(signer);
-    }
-
-    let blockCount = 0;
-    return new Promise((resolve, reject) => {
-      const onBlock = async (newBlockNumber: number) => {
-        blockCount++;
-        if (blockCount >= nBlocks) {
-          await provider.off("block", onBlock);
-          resolve(newBlockNumber);
-        }
-      };
-
-      provider.on("block", onBlock).catch((err) => {
-        reject(err);
-      });
-
-      if (signer) {
-        _sendZeroTx(nBlocks, signer, lo);
-      }
-    });
+    await this._fhevmProviderInfos.waitNBlocks(nBlocks);
   }
-
-  //   public async waitForTransactionDecryptions(tx: ethers.ContractTransactionResponse): Promise<{
-  //     receipt: ethers.ContractTransactionReceipt;
-  //     results: HardhatFhevmDecryption[];
-  //   } | null> {
-  //     const receipt = await tx.wait();
-  //     if (!receipt) {
-  //       return null;
-  //     }
-  //     // receipt.hash === decryptionRequests[i].txHash
-  //     const decryptionRequests = await this.resultprocessor().parseEventDecryptionEvents(receipt.logs);
-  //     const results = await this.resultprocessor().waitForDecryptions(decryptionRequests);
-  //     return { receipt, results };
-  //   }
 
   public readACLAddress() {
-    return zamaReadContractAddressSync("ACL", getUserPackageNodeModulesDir(this.hre.config), ZamaDev);
+    return zamaReadContractAddressSync("ACL", getUserPackageNodeModulesDir(this._hre.config), ZamaDev);
   }
+
   public readKMSVerifierAddress() {
-    return zamaReadContractAddressSync("KMSVerifier", getUserPackageNodeModulesDir(this.hre.config), ZamaDev);
+    return zamaReadContractAddressSync("KMSVerifier", getUserPackageNodeModulesDir(this._hre.config), ZamaDev);
   }
+
   public readFHEExecutorAddress() {
-    return zamaReadContractAddressSync("TFHEExecutor", getUserPackageNodeModulesDir(this.hre.config), ZamaDev);
+    return zamaReadContractAddressSync("TFHEExecutor", getUserPackageNodeModulesDir(this._hre.config), ZamaDev);
   }
+
   public readGatewayContractAddress() {
-    return zamaReadContractAddressSync("GatewayContract", getUserPackageNodeModulesDir(this.hre.config), ZamaDev);
+    return zamaReadContractAddressSync("GatewayContract", getUserPackageNodeModulesDir(this._hre.config), ZamaDev);
   }
 
   public async isAllowed(handle: EthersT.BigNumberish, userAddress: EthersT.AddressLike) {
     const acl = await zamaGetContrat(
       "ACL",
-      getUserPackageNodeModulesDir(this.hre.config),
+      getUserPackageNodeModulesDir(this._hre.config),
       ZamaDev,
-      this.hre.ethers.provider,
-      this.hre,
+      this._hre.ethers.provider,
+      this._hre,
     );
     return await acl.persistAllowed(handle, userAddress);
   }
@@ -256,6 +222,10 @@ export abstract class HardhatFhevmRuntimeEnvironment {
     }
   }
 
+  protected async throwIfNotReady() {
+    this._fhevmProviderInfos.throwIfNotReady();
+  }
+
   public async canDecrypt(
     handle: EthersT.BigNumberish,
     contractAddress: EthersT.AddressLike,
@@ -263,10 +233,10 @@ export abstract class HardhatFhevmRuntimeEnvironment {
   ) {
     const acl = await zamaGetContrat(
       "ACL",
-      getUserPackageNodeModulesDir(this.hre.config),
+      getUserPackageNodeModulesDir(this._hre.config),
       ZamaDev,
-      this.hre.ethers.provider,
-      this.hre,
+      this._hre.ethers.provider,
+      this._hre,
     );
     const result = await Promise.all([
       acl.persistAllowed(handle, contractAddress),

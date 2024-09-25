@@ -15,7 +15,7 @@ declare module "mocha" {
 export function useEnvironment(fixtureProjectName: string) {
   beforeEach("Loading hardhat environment", async function () {
     process.chdir(path.join(__dirname, "fixture-projects", fixtureProjectName));
-    this.hre = require("hardhat");
+    this.hre = await import("hardhat");
 
     await resetFixtureProject(fixtureProjectName, this.hre);
     await installFhevmSolidityContracts(fixtureProjectName, this.hre);

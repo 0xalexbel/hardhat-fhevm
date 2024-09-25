@@ -3,7 +3,6 @@ import assert from "assert";
 import hre from "hardhat";
 import { ethers } from "hardhat";
 import { HardhatFhevmInstance } from "../../../../src/index";
-import { HardhatFhevmRuntimeEnvironmentType } from "../../../../src/common/HardhatFhevmRuntimeEnvironment";
 
 export interface Signers {
   alice: HardhatEthersSigner;
@@ -52,43 +51,3 @@ export const createInstances = async (accounts: Signers): Promise<HardhatFhevmIn
   );
   return instances;
 };
-
-export async function waitNBlocks(nBlocks: number) {
-  if (nBlocks <= 0) {
-    return;
-  }
-
-  let blockCount = 0;
-  return new Promise((resolve, reject) => {
-    const onBlock = async (newBlockNumber: number) => {
-      blockCount++;
-      if (blockCount >= nBlocks) {
-        await hre.ethers.provider.off("block", onBlock);
-        resolve(newBlockNumber);
-      }
-    };
-
-    hre.ethers.provider.on("block", onBlock).catch((err) => {
-      reject(err);
-    });
-
-    if (hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Mock) {
-      sendNDummyTransactions(nBlocks);
-    }
-  });
-}
-
-async function sendNDummyTransactions(blockCount: number) {
-  let counter = blockCount;
-  while (counter >= 0) {
-    counter--;
-    const [signer] = await hre.ethers.getSigners();
-    const nullAddress = "0x0000000000000000000000000000000000000000";
-    const tx = {
-      to: nullAddress,
-      value: 0n,
-    };
-    const receipt = await signer.sendTransaction(tx);
-    await receipt.wait();
-  }
-}

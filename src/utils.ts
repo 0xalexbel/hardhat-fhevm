@@ -38,6 +38,10 @@ export function currentTime(): string {
 
 export function hex64ToHex40(hex64: string): string {
   if (hex64.startsWith("0x")) {
+    if (hex64.length <= 42) {
+      const addr = "0x" + hex64.substring(2).padStart(40, "0");
+      return EthersT.getAddress(addr);
+    }
     assert(hex64.length === 66);
     assert(hex64.substring(0, hex64.length - 40) === "0x000000000000000000000000");
     return hex64.substring(hex64.length - 40);
@@ -114,7 +118,7 @@ export async function isDeployed(address: string | undefined, provider: EthersT.
       return address;
     }
     return undefined;
-  } catch (e) {
+  } catch {
     // no network connection ?
     return undefined;
   }
@@ -133,7 +137,7 @@ export async function getDeployedByteCode(
       return undefined;
     }
     return bc;
-  } catch (e) {
+  } catch {
     // no network connection ?
     return undefined;
   }

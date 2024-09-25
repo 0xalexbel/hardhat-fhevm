@@ -8,9 +8,10 @@ describe("anvil mock async decrypt tests", function () {
   useEnvironment("anvil-mock-async-decrypt");
 
   it("AnvilFastMock_AsyncDecrypt: TASK_TEST", async function () {
+    expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(undefined);
+    // When using Anvil, on-chain mock db is the default behaviour
+    expect(await this.hre.fhevm.useMockOnChainDecryption()).is.eq(true);
     this.hre.fhevm.logOptions = { quiet: true };
-    // By default, when running anvil, use on-chain mock
-    expect(this.hre.network.config.useOnChainFhevmMockProcessor).is.eq(true);
     await this.hre.run(TASK_TEST);
   });
 });

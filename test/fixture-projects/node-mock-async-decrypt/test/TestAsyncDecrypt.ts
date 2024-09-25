@@ -1,14 +1,7 @@
 import { expect } from "chai";
 import hre from "hardhat";
 
-import {
-  HardhatFhevmInstances,
-  HardhatFhevmRuntimeEnvironmentType,
-  Signers,
-  createInstances,
-  getSigners,
-  initSigners,
-} from "./test_utils";
+import { HardhatFhevmInstances, Signers, createInstances, getSigners, initSigners } from "./test_utils";
 import { ethers } from "ethers";
 
 describe("TestAsyncDecrypt", function () {
@@ -171,11 +164,12 @@ describe("TestAsyncDecrypt", function () {
   });
 
   it("Test11: test async decrypt ebytes256 non-trivial", async function () {
-    if (hre.network.config.useOnChainFhevmMockProcessor) {
+    if (await hre.fhevm.useMockOnChainDecryption()) {
       // not yet supported
-      console.log("Test not yet supported");
-      return;
+      console.log("Test not yet supported, mock on chain decryption does not support ebytes256");
+      this.skip();
     }
+
     const inputAlice = instances.alice.createEncryptedInput(contractAddress, signers.alice.address);
     inputAlice.addBytes256(18446744073709550022n);
     const encryptedAmount = inputAlice.encrypt();
@@ -189,14 +183,18 @@ describe("TestAsyncDecrypt", function () {
   });
 
   it("Test12: test async decrypt ebytes256 non-trivial with snapshot [skip-on-coverage]", async function () {
-    if (
-      hre.network.config.useOnChainFhevmMockProcessor ||
-      hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Local
-    ) {
-      // not yet supported
-      console.log("Test not yet supported");
-      return;
+    const rpc_methods = await hre.fhevm.getProviderRpcMethods();
+    if (!rpc_methods.evmSnapshot || !rpc_methods.evmRevert) {
+      // Test is not target at this type of fhevm
+      this.skip();
     }
+
+    if (await hre.fhevm.useMockOnChainDecryption()) {
+      // not yet supported
+      console.log("Test not yet supported, mock on chain decryption does not support ebytes256");
+      this.skip();
+    }
+
     snapshotId = await hre.ethers.provider.send("evm_snapshot");
     const inputAlice = instances.alice.createEncryptedInput(contractAddress, signers.alice.address);
     inputAlice.addBytes256(18446744073709550022n);
@@ -223,11 +221,12 @@ describe("TestAsyncDecrypt", function () {
   });
 
   it("Test13: test async decrypt mixed with ebytes256", async function () {
-    if (hre.network.config.useOnChainFhevmMockProcessor) {
+    if (await hre.fhevm.useMockOnChainDecryption()) {
       // not yet supported
-      console.log("Test not yet supported");
-      return;
+      console.log("Test not yet supported, mock on chain decryption does not support ebytes256");
+      this.skip();
     }
+
     const inputAlice = instances.alice.createEncryptedInput(contractAddress, signers.alice.address);
     inputAlice.addBytes256(18446744073709550032n);
     const encryptedAmount = inputAlice.encrypt();

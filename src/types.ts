@@ -46,3 +46,7 @@ export type HardhatFhevmProviderInfos = {
   setCode: string | undefined;
   mine: string | undefined;
 };
+
+export type FhevmCompileOptions = {
+  onChainFhevmMockProcessor: boolean;
+};

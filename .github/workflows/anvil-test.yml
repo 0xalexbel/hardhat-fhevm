@@ -1,29 +1,14 @@
 # This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
 # For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
 
-name: Test Anvil
+name: Test Mock Fhevm on Anvil
 
 on:
   workflow_dispatch:
-    # inputs:
-    #   logLevel:
-    #     description: "Log level"
-    #     required: true
-    #     default: "warning"
-    #     type: choice
-    #     options:
-    #       - info
-    #       - warning
-    #       - debug
-    #   tags:
-    #     description: "Test scenario tags"
-    #     required: false
-    #     type: boolean
-    #   environment:
-    #     description: "Environment to run tests against"
-    #     type: environment
-    #     required: false
-
+  pull_request:
+  push:
+    branches:
+      - main
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -41,5 +26,5 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: anvil &
+      - run: anvil --code-size-limit 100000000 &
       - run: npm run test:anvil

@@ -1,29 +1,26 @@
 import assert from "assert";
-import { HardhatRuntimeEnvironment, NetworkConfig } from "hardhat/types";
-import {
-  HardhatFhevmRuntimeEnvironment,
-  HardhatFhevmRuntimeEnvironmentType,
-} from "../common/HardhatFhevmRuntimeEnvironment";
-import { ZAMA_DEV_NETWORK_CONFIG } from "../constants";
+import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatFhevmError } from "../error";
 import { HardhatFhevmInstance } from "../common/HardhatFhevmInstance";
 import { ResultCallbackProcessor } from "../common/ResultCallbackProcessor";
 import { ZamaFhevmInstance } from "./ZamaFhevmInstance";
 import { ethers as EthersT } from "ethers";
 import { bigIntToAddress } from "../utils";
+import { HardhatFhevmProvider } from "../common/HardhatFhevmProvider";
+import { FhevmProviderInfos } from "../common/FhevmProviderInfos";
 
 ////////////////////////////////////////////////////////////////////////////////
 
-export class ZamaFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment {
+export class ZamaFhevmProvider extends HardhatFhevmProvider {
   private _instance: ZamaFhevmInstance | undefined;
   private _privateKey: string | undefined;
   private _publicKey: string | undefined;
 
-  constructor(hre: HardhatRuntimeEnvironment) {
-    super(HardhatFhevmRuntimeEnvironmentType.Zama, hre);
+  constructor(fhevmProviderInfos: FhevmProviderInfos, hre: HardhatRuntimeEnvironment) {
+    super(fhevmProviderInfos, hre);
   }
 
-  protected resultprocessor(): Promise<ResultCallbackProcessor> {
+  public resultprocessor(): Promise<ResultCallbackProcessor> {
     throw new HardhatFhevmError("Method not implemented.");
   }
 
@@ -46,8 +43,6 @@ export class ZamaFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     if (handle === 0n) {
       return 0n;
     }
-
-    await this.throwIfCanNotDecrypt(handle, contract, signer);
 
     const { instance, publicKey, privateKey } = await this._getInstance();
 
@@ -116,16 +111,7 @@ export class ZamaFhevmRuntimeEnvironment extends HardhatFhevmRuntimeEnvironment 
     throw new HardhatFhevmError("Method not supported.");
   }
 
-  static isZamaNetwork(networkConfig: NetworkConfig): boolean {
-    if (!("url" in networkConfig)) {
-      return false;
-    }
-    if (networkConfig.chainId !== ZAMA_DEV_NETWORK_CONFIG.chainId) {
-      return false;
-    }
-    if (networkConfig.url !== ZAMA_DEV_NETWORK_CONFIG.url) {
-      return false;
-    }
+  public override async isRunning(): Promise<boolean> {
     return true;
   }
 }

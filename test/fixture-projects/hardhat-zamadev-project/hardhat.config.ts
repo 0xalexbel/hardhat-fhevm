@@ -11,7 +11,7 @@ import {
   ZAMA_DEV_ACCOUNTS,
   ZAMA_DEV_NETWORK_CONFIG,
 } from "../../../src/constants";
-import { LOCAL_FHEVM_CHAIN_ID } from "../../common/DockerServices";
+import { LOCAL_FHEVM_CHAIN_ID } from "../../../src/index";
 
 const config: HardhatUserConfig = {
   //defaultNetwork: ZAMA_DEV_NETWORK_NAME,

@@ -1,4 +1,5 @@
 // export const TASK_FHEVM = "fhevm";
+export const TASK_FHEVM_INTERNAL_INSTALL_SOLIDITY = "fhevm:internal:install:solidity";
 export const TASK_FHEVM_START_LOCAL = "fhevm:start:local";
 export const TASK_FHEVM_STOP_LOCAL = "fhevm:stop:local";
 export const TASK_FHEVM_COMPILE = "fhevm:contracts:compile";

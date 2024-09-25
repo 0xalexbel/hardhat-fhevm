@@ -7,17 +7,14 @@ import { Keccak } from "sha3";
 
 import { FhevmNumBitsType, FhevmType } from "../common/handle";
 import { bytesToBigInt } from "../utils";
-import { MockFhevmRuntimeEnvironment } from "./MockFhevmRuntimeEnvironment";
-import { HardhatRuntimeEnvironment } from "hardhat/types";
-import { HardhatFhevmRuntimeEnvironmentType } from "../common/HardhatFhevmRuntimeEnvironment";
+import { MockFhevmProvider } from "./MockFhevmProvider";
 
-const createInstance = async (hre: HardhatRuntimeEnvironment) => {
-  assert(hre.fhevm.runtimeType === HardhatFhevmRuntimeEnvironmentType.Mock);
+const createInstance = async (fhevmProvider: MockFhevmProvider) => {
+  const chainId = await fhevmProvider.infos.getChainId();
+  assert(chainId !== undefined);
 
-  const instance = await fhevmjs_node.createInstance({
-    chainId: hre.network.config.chainId,
-  });
-  instance.reencrypt = reencryptRequestMocked(hre);
+  const instance = await fhevmjs_node.createInstance({ chainId });
+  instance.reencrypt = reencryptRequestMocked(fhevmProvider, chainId);
   instance.createEncryptedInput = createEncryptedInputMocked;
   instance.getPublicKey = () => "0xFFAA44433";
   return instance;
@@ -94,7 +91,7 @@ function createUintToUint8ArrayFunction(numBits: number) {
   };
 }
 const reencryptRequestMocked =
-  (hre: HardhatRuntimeEnvironment) =>
+  (fhevmProvider: MockFhevmProvider, chainId: number) =>
   async (
     handle: bigint,
     _privateKey: string,
@@ -107,7 +104,7 @@ const reencryptRequestMocked =
     const domain = {
       name: "Authorization token",
       version: "1",
-      chainId: hre.network.config.chainId,
+      chainId,
       verifyingContract: contractAddress,
     };
     const types = {
@@ -135,8 +132,7 @@ const reencryptRequestMocked =
     //   throw new Error("User is not authorized to reencrypt this handle!");
     // }
 
-    const fhevm = MockFhevmRuntimeEnvironment.cast(hre.fhevm);
-    const clearBn = await fhevm.decryptBigInt(handle, contractAddress, userAddress);
+    const clearBn = await fhevmProvider.decryptMockHandle(handle, contractAddress, userAddress);
     return clearBn;
   };
 
