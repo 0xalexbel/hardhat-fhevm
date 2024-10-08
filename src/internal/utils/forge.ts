@@ -25,7 +25,7 @@ export function writeFoundryToml(
   const rm = Object.entries(remappings).map(([k, v]) => `"${k}=${v}"`);
   let s = "";
   for (let i = 0; i < rm.length; ++i) {
-    s += "    " + rm[i];
+    s += "  " + rm[i];
     if (i !== rm.length - 1) {
       s += ",\n";
     }
@@ -44,7 +44,7 @@ cache_path = 'cache_forge'
 out = 'artifacts_forge'
 remappings = [
   "forge-std=dependencies/forge-std-${forgeStdVersion}/src",
-  ${s}
+${s}
 ]
   
 [dependencies]
@@ -79,6 +79,21 @@ export async function forgeScript(scriptPath: string) {
     console.log(a.stderr);
   } else {
     console.log("./foundry.toml = false");
+  }
+  if (fs.existsSync("./dependencies/forge-std-1.9.3")) {
+    console.log("./dependencies/forge-std-1.9.3 = true");
+  } else {
+    console.log("./dependencies/forge-std-1.9.3 = false");
+  }
+  if (fs.existsSync("./dependencies/forge-std-1.9.3/src")) {
+    console.log("./dependencies/forge-std-1.9.3/src = true");
+  } else {
+    console.log("./dependencies/forge-std-1.9.3/src = false");
+  }
+  if (fs.existsSync("./dependencies/forge-std-1.9.3/src/Script.sol")) {
+    console.log("./dependencies/forge-std-1.9.3/src/Script.sol = true");
+  } else {
+    console.log("./dependencies/forge-std-1.9.3/src/Script.sol = false");
   }
   //forge script ./test_forge/TestEncryptedERC20.s.sol
   await exec(`forge script ${scriptPath}`);
