@@ -15,7 +15,7 @@ import { FhevmContractsRepository } from "../internal/FhevmContractsRepository";
 import { HardhatFhevmError } from "../error";
 import { getHHFhevmPackageForgeDir } from "../internal/utils/dirs";
 import { installForgeStdUsingSoldeer, isForgeInstalled, writeFoundryToml } from "../internal/utils/forge";
-import { FhevmTypeHHFhevm } from "../constants";
+import { DEFAULT_USE_EXT_TFHE_LIB, FhevmTypeHHFhevm } from "../constants";
 
 const fhevmScope = scope(SCOPE_FHEVM, "Fhevm related commands");
 
@@ -107,7 +107,7 @@ fhevmScope
       hre,
     ) => {
       const fhevmEnv = fhevmContext.get();
-      const old = fhevmEnv.setUserDeployOptionsNoProvider(FhevmTypeHHFhevm, true);
+      const old = fhevmEnv.setUserDeployOptionsNoProvider(FhevmTypeHHFhevm, DEFAULT_USE_EXT_TFHE_LIB);
 
       const forgeSrcDir = getHHFhevmPackageForgeDir();
       const forgeDstDir = fhevmEnv.paths.HHFhevmForgeSources;

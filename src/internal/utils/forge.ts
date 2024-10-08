@@ -43,10 +43,17 @@ libs = ["node_modules", "dependencies"]
 cache_path = 'cache_forge'
 out = 'artifacts_forge'
 remappings = [
-  "forge-std=dependencies/forge-std-${forgeStdVersion}/src",
+  "forge-std/=dependencies/forge-std-${forgeStdVersion}/src/",
 ${s}
 ]
-  
+
+[soldeer]
+remappings_generate = false
+remappings_regenerate = false
+remappings_version = false
+remappings_prefix = ""
+remappings_location = "config"
+
 [dependencies]
 forge-std = "${forgeStdVersion}"
 
@@ -60,41 +67,13 @@ export async function installForgeStdUsingSoldeer(tomlPath: string) {
   const cmd = `cd ${dir} ; forge soldeer install`;
 
   try {
-    const out = await exec(cmd);
-    console.log(`${cmd} : stdout =`);
-    console.log(`${out.stdout}`);
-    console.log(`${cmd} : stderr =`);
-    console.log(`${out.stderr}`);
+    await exec(cmd);
   } catch {
     throw new HardhatFhevmError(`Failed to install forge dependencies`);
   }
 }
 
 export async function forgeScript(scriptPath: string) {
-  console.log("scriptPath = " + scriptPath);
-  if (fs.existsSync("./foundry.toml")) {
-    console.log("./foundry.toml = true");
-    const a = await exec(`cat ./foundry.toml`);
-    console.log(a.stdout);
-    console.log(a.stderr);
-  } else {
-    console.log("./foundry.toml = false");
-  }
-  if (fs.existsSync("./dependencies/forge-std-1.9.3")) {
-    console.log("./dependencies/forge-std-1.9.3 = true");
-  } else {
-    console.log("./dependencies/forge-std-1.9.3 = false");
-  }
-  if (fs.existsSync("./dependencies/forge-std-1.9.3/src")) {
-    console.log("./dependencies/forge-std-1.9.3/src = true");
-  } else {
-    console.log("./dependencies/forge-std-1.9.3/src = false");
-  }
-  if (fs.existsSync("./dependencies/forge-std-1.9.3/src/Script.sol")) {
-    console.log("./dependencies/forge-std-1.9.3/src/Script.sol = true");
-  } else {
-    console.log("./dependencies/forge-std-1.9.3/src/Script.sol = false");
-  }
   //forge script ./test_forge/TestEncryptedERC20.s.sol
   await exec(`forge script ${scriptPath}`);
 }
