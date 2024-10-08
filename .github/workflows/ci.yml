@@ -39,7 +39,7 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
       - name: "Test"
-        run: npm test:ci
+        run: npm run test:ci
 
       - name: "Add test summary"
         run: |
