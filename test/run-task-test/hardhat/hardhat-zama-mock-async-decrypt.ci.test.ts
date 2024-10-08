@@ -3,8 +3,8 @@
 import "../../../src/type-extensions";
 import { runConfigAndTaskTest } from "../run-task-test";
 
-const network = "localhost";
-const fhevmType = "mock";
+const network = "hardhat";
+const fhevmType = "zama-mock";
 const contract = "async-decrypt";
 
 describe(`Test ${network}-${fhevmType}-${contract}`, runConfigAndTaskTest(network, fhevmType, contract));

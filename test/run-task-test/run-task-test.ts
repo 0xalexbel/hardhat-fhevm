@@ -2,7 +2,11 @@ import { expect } from "chai";
 import { useProjectTemplateEnvironment } from "../helpers";
 import { TASK_TEST } from "hardhat/builtin-tasks/task-names";
 
-export function runConfigAndTaskTest(network: string, fhevmType: string, contract: string) {
+export function runConfigAndTaskTest(
+  network: string,
+  fhevmType: "zama-mock" | "hh-fhevm" | "native",
+  contract: string,
+) {
   return function () {
     const testType = `${network}-${fhevmType}`;
 
@@ -12,6 +16,8 @@ export function runConfigAndTaskTest(network: string, fhevmType: string, contrac
       const [signer] = await this.hre.ethers.getSigners();
       // mnemonic= test test ... junk
       expect(signer.address).to.eq("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+
+      //const hhFhevmType = fhevmTypeStrToHardhatFhevmType(fhevmType);
 
       expect(this.fhevmEnv.hre.network.config.fhevm).is.eq(fhevmType);
       expect(this.fhevmEnv.hre.network.name).is.eq(network);
@@ -31,7 +37,7 @@ export function runConfigAndTaskTest(network: string, fhevmType: string, contrac
   };
 }
 
-export function runTaskTestOnly(network: string, fhevmType: string, contract: string) {
+export function runTaskTestOnly(network: string, fhevmType: "zama-mock" | "hh-fhevm" | "native", contract: string) {
   return function () {
     const testType = `${network}-${fhevmType}`;
 

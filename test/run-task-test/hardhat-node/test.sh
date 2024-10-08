@@ -53,7 +53,7 @@ run_test() {
 
 
 # eq: "npx hardhat --network localhost test"
-run_test "mock" "erc20" "${TEST_PATH}/run-task-test/hardhat-node/localhost-mock-erc20.ci.test.ts" || { echo 'hardhat-node/localhost-mock-erc20.ci.test.ts failed'; exit 1; }
-run_test "mock" "async-decrypt" "${TEST_PATH}/run-task-test/hardhat-node/localhost-mock-async-decrypt.ci.test.ts" || { echo 'hardhat-node/localhost-mock-async-decrypt.ci.test.ts failed'; exit 1; }
+run_test "zama-mock" "erc20" "${TEST_PATH}/run-task-test/hardhat-node/localhost-zama-mock-erc20.ci.test.ts" || { echo 'hardhat-node/localhost-zama-mock-erc20.ci.test.ts failed'; exit 1; }
+run_test "zama-mock" "async-decrypt" "${TEST_PATH}/run-task-test/hardhat-node/localhost-zama-mock-async-decrypt.ci.test.ts" || { echo 'hardhat-node/localhost-zama-mock-async-decrypt.ci.test.ts failed'; exit 1; }
 run_test "hh-fhevm" "erc20" "${TEST_PATH}/run-task-test/hardhat-node/localhost-hh-fhevm-erc20.ci.test.ts" || { echo 'hardhat-node/localhost-hh-fhevm-erc20.ci.test.ts failed'; exit 1; }
 run_test "hh-fhevm" "async-decrypt" "${TEST_PATH}/run-task-test/hardhat-node/localhost-hh-fhevm-async-decrypt.ci.test.ts" || { echo 'hardhat-node/localhost-hh-fhevm-async-decrypt.ci.test.ts failed'; exit 1; }

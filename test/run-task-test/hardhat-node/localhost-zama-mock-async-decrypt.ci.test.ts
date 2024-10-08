@@ -4,10 +4,7 @@ import "../../../src/type-extensions";
 import { runConfigAndTaskTest } from "../run-task-test";
 
 const network = "localhost";
-const fhevmType = "mock";
-const contract = "erc20";
+const fhevmType = "zama-mock";
+const contract = "async-decrypt";
 
-/**
- * Does not work on anvil
- */
 describe(`Test ${network}-${fhevmType}-${contract}`, runConfigAndTaskTest(network, fhevmType, contract));

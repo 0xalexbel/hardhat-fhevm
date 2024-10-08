@@ -4,7 +4,7 @@ import "../../../src/type-extensions";
 import { runConfigAndTaskTest } from "../run-task-test";
 
 const network = "hardhat";
-const fhevmType = "mock";
+const fhevmType = "zama-mock";
 const contract = "erc20";
 
 describe(`Test ${network}-${fhevmType}-${contract}`, runConfigAndTaskTest(network, fhevmType, contract));
