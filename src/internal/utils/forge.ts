@@ -67,6 +67,15 @@ export async function installForgeStdUsingSoldeer(tomlPath: string) {
 }
 
 export async function forgeScript(scriptPath: string) {
+  console.log("scriptPath = " + scriptPath);
+  if (fs.existsSync("./foundry.toml")) {
+    console.log("./foundry.toml = true");
+    const a = await exec(`cat ./foundry.toml`);
+    console.log(a.stdout);
+    console.log(a.stderr);
+  } else {
+    console.log("./foundry.toml = false");
+  }
   //forge script ./test_forge/TestEncryptedERC20.s.sol
   await exec(`forge script ${scriptPath}`);
 }
