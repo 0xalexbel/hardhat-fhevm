@@ -60,7 +60,11 @@ export async function installForgeStdUsingSoldeer(tomlPath: string) {
   const cmd = `cd ${dir} ; forge soldeer install`;
 
   try {
-    await exec(cmd);
+    const out = await exec(cmd);
+    console.log(`${cmd} : stdout =`);
+    console.log(`${out.stdout}`);
+    console.log(`${cmd} : stderr =`);
+    console.log(`${out.stderr}`);
   } catch {
     throw new HardhatFhevmError(`Failed to install forge dependencies`);
   }
