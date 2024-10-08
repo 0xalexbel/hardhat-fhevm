@@ -1,44 +1,57 @@
 import "hardhat/types/config";
 import "hardhat/types/runtime";
-import type { FhevmNodeConfig, FhevmNodeUserConfig } from "./types";
-import type { HardhatFhevmRuntimeEnvironment } from "./common/HardhatFhevmRuntimeEnvironment";
+import type {
+  HardhatFhevmRuntimeEnvironment,
+  HardhatFhevmNodeConfig,
+  HardhatFhevmNodeUserConfig,
+  HardhatFhevmMockType,
+  HardhatFhevmType,
+} from "./types";
 
 declare module "hardhat/types/config" {
   export interface ProjectPathsUserConfig {
-    fhevm?: string;
+    /**
+     * hardhat-fhevm plugin cache, default = `<hardhat-config.config.paths.root>/hh-fhevm/cache`
+     */
+    hhFhevmCache?: string;
+    /**
+     * hardhat-fhevm plugin solidity custom contracts, default = `<hardhat-config.config.paths.root>/hh-fhevm/contracts`
+     */
+    hhFhevmSources?: string;
+    /**
+     * Cache used by the local-fhevm node to store keys and docker files, default = `<hardhat-config.config.paths.root>/hh-fhevm/local-fhevm-node`
+     */
+    localFhevmNodeCache?: string;
   }
 
   export interface ProjectPathsConfig {
-    fhevm: string;
-    fhevmContracts: string;
+    hhFhevmCache: string;
+    hhFhevmSources: string;
+    localFhevmNodeCache: string;
   }
 
   export interface HardhatConfig {
-    fhevmNode: FhevmNodeConfig;
+    fhevmNode: HardhatFhevmNodeConfig;
   }
 
   export interface HardhatUserConfig {
-    fhevmNode?: FhevmNodeUserConfig;
+    fhevmNode?: HardhatFhevmNodeUserConfig;
   }
 
   export interface HardhatNetworkUserConfig {
-    mockFhevm?: boolean;
-    useOnChainFhevmMockProcessor?: boolean;
+    fhevm?: HardhatFhevmMockType;
   }
 
   export interface HardhatNetworkConfig {
-    mockFhevm: boolean;
-    useOnChainFhevmMockProcessor?: boolean;
+    fhevm: HardhatFhevmMockType;
   }
 
   export interface HttpNetworkUserConfig {
-    mockFhevm?: boolean;
-    useOnChainFhevmMockProcessor?: boolean;
+    fhevm?: HardhatFhevmMockType;
   }
 
   export interface HttpNetworkConfig {
-    mockFhevm: boolean;
-    useOnChainFhevmMockProcessor?: boolean;
+    fhevm: HardhatFhevmType;
   }
 }
 

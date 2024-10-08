@@ -5,6 +5,22 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "testAAAA",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "type": "node",
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": ["hardhat", "test", "./test/test.ts"]
+    },
+    {
+      "name": "install-solidity",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "type": "node",
+      "cwd": "${workspaceFolder}",
+      "runtimeArgs": ["hardhat", "fhevm", "install-solidity", "--fhevm-type", "hh-fhevm", "--ext-tfhe-lib", "--verbose"]
+    },
+    {
       "name": "hh test",
       "request": "launch",
       "runtimeExecutable": "pnpm",

@@ -9,41 +9,47 @@ import { FlatCompat } from "@eslint/eslintrc";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const compat = new FlatCompat({
-    baseDirectory: __dirname,
-    recommendedConfig: js.configs.recommended,
-    allConfig: js.configs.all
+  baseDirectory: __dirname,
+  recommendedConfig: js.configs.recommended,
+  allConfig: js.configs.all,
 });
 
-export default [{
+export default [
+  {
     ignores: ["dist/*"],
-}, ...compat.extends("eslint:recommended", "prettier"), {
+  },
+  ...compat.extends("eslint:recommended", "prettier"),
+  {
     languageOptions: {
-        globals: {
-            ...globals.browser,
-            ...globals.node,
-            ...globals.mocha,
-            artifacts: "readonly",
-            contract: "readonly",
-            web3: "readonly",
-            extendEnvironment: "readonly",
-            expect: "readonly",
-        },
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        ...globals.mocha,
+        artifacts: "readonly",
+        contract: "readonly",
+        web3: "readonly",
+        extendEnvironment: "readonly",
+        expect: "readonly",
+      },
     },
-}, ...compat.extends("eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier").map(config => ({
+  },
+  ...compat.extends("eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier").map((config) => ({
     ...config,
     files: ["**/*.ts"],
     ignores: ["./dist/**/*.js"],
-})), {
+  })),
+  {
     files: ["**/*.ts"],
     ignores: ["./dist/**/*.js"],
 
     plugins: {
-        "@typescript-eslint": typescriptEslint,
+      "@typescript-eslint": typescriptEslint,
     },
 
     languageOptions: {
-        parser: tsParser,
-        ecmaVersion: "latest",
-        sourceType: "module",
+      parser: tsParser,
+      ecmaVersion: "latest",
+      sourceType: "module",
     },
-}];
+  },
+];

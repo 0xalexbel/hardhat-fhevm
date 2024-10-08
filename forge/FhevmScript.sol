@@ -32,8 +32,18 @@ contract FhevmScript is Script {
         address expectedTFHEExecutorAddr = vm.computeCreateAddress(deployer, 1);
         address expectedKMSVerifierAddr = vm.computeCreateAddress(deployer, 2);
 
-        vm.startBroadcast(deployer);
+        //0xcCAe95fF1d11656358E782570dF0418F59fA40e1
+        address expectedMockedPrecompileAddr = vm.computeCreateAddress(deployer, 3);
 
+        // already deployed:
+        // 1/ start anvil or 'npx hardhat node'
+        // 2/ run 'npx hardhat --network localhost fhevm setup'
+        if (expectedACLAddr.code.length != 0) {
+            return;
+        }
+
+        vm.startBroadcast(deployer);
+        
         acl = new ACL(fhevmCoprocessorAdd);
         executor = new TFHEExecutor();
         kmsVerifier = new KMSVerifier();
@@ -46,11 +56,15 @@ contract FhevmScript is Script {
         vm.assertEq(address(executor), fhevmCoprocessorAdd);
         vm.assertEq(address(kmsVerifier), KMS_VERIFIER_CONTRACT_ADDRESS);
 
-        fhevm.deployCodeTo("fhevm/lib/MockedPrecompile.sol", "", 0, EXT_TFHE_LIBRARY);
-
-        mockedPrecompile = MockedPrecompile(EXT_TFHE_LIBRARY);
-
-        vm.assertEq(address(mockedPrecompile), EXT_TFHE_LIBRARY);
+        if (EXT_TFHE_LIBRARY == 0x000000000000000000000000000000000000005d) {
+            fhevm.deployCodeTo("fhevm/lib/MockedPrecompile.sol", "", 0, EXT_TFHE_LIBRARY);
+            mockedPrecompile = MockedPrecompile(EXT_TFHE_LIBRARY);
+            vm.assertEq(address(mockedPrecompile), EXT_TFHE_LIBRARY);
+        } else {
+            mockedPrecompile = new MockedPrecompile();
+            vm.assertEq(address(mockedPrecompile), expectedMockedPrecompileAddr);
+            vm.assertEq(address(mockedPrecompile), EXT_TFHE_LIBRARY);
+        }
 
         vm.stopBroadcast();
     }
@@ -60,6 +74,13 @@ contract FhevmScript is Script {
         address deployer = vm.rememberKey(privateKey);
 
         address expectedGatewayAddr = vm.computeCreateAddress(deployer, 0);
+
+        // already deployed:
+        // 1/ start anvil or 'npx hardhat node'
+        // 2/ run 'npx hardhat --network localhost fhevm setup'
+        if (expectedGatewayAddr.code.length != 0) {
+            return;
+        }
 
         vm.assertEq(expectedGatewayAddr, GATEWAY_CONTRACT_PREDEPLOY_ADDRESS);
 
@@ -72,11 +93,10 @@ contract FhevmScript is Script {
         vm.stopBroadcast();
     }
 
+    function setUp() public virtual {
+        //string memory mnemonic = "adapt mosquito move limb mobile illegal tree voyage juice mosquito burger raise father hope layer";
 
-    function setUp() public {
-        string memory mnemonic = "adapt mosquito move limb mobile illegal tree voyage juice mosquito burger raise father hope layer";
-
-        deployFhevm(mnemonic);
-        deployGateway(mnemonic);
+        deployFhevm(fhevm.ZAMA_DEV_MNEMONIC);
+        deployGateway(fhevm.ZAMA_DEV_MNEMONIC);
     }
 }

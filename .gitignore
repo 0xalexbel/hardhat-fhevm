@@ -1,17 +1,13 @@
+#test debug
 /cache
 /artifacts
 /dist
 /types
-/hh_fhevm
+/hh-fhevm
+/cache_fhevm
+/my_funky_fhevm
 ./hardhat.config.ts
-/test/fixture-projects/**/my_funky_fhevm
-/test/fixture-projects/**/types
-/test/fixture-projects/**/node_modules
-/test/fixture-projects/**/artifacts
-/test/fixture-projects/**/cache
-/test/fixture-projects/**/keys
-/test/fixture-projects/**/docker
-/test/fixture-projects/**/imports.sol
+/test/tmp
 
 # Logs
 logs
