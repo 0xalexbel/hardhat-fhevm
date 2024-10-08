@@ -14,18 +14,19 @@ export function ensurePrefix(str: string, prefix: string): string {
   }
 }
 
+export function ensureSuffix(str: string, suffix: string): string {
+  if (str.endsWith(suffix)) {
+    return str;
+  } else {
+    return str + suffix;
+  }
+}
+
 export function applyTemplate(template: string, placeholders: [string, string][]) {
   return replaceStrings(
     template,
     placeholders.map(([t, v]) => [`{{${t}}}`, v]),
   );
-  // let s = template;
-  // for (let i = 0; i < placeholders.length; ++i) {
-  //   const t = placeholders[i][0];
-  //   const v = placeholders[i][1];
-  //   s = s.replaceAll(`{{${t}}}`, v);
-  // }
-  // return s;
 }
 
 export function replaceStrings(str: string, searchAndReplaceValues: [string, string][]) {

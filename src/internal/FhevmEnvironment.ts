@@ -40,7 +40,7 @@ import {
   ____deployAndRunGatewayFirstRequestBugAvoider,
   ____writeGatewayFirstRequestBugAvoiderSync,
 } from "./TmpGatewayBugPatch";
-import { ensurePrefix } from "./utils/string_utils";
+import { ensurePrefix, ensureSuffix } from "./utils/string_utils";
 
 export class FhevmEnvironment implements HardhatFhevmEthers {
   private _hre: HardhatRuntimeEnvironment;
@@ -328,13 +328,14 @@ export class FhevmEnvironment implements HardhatFhevmEthers {
     }
 
     const remappings: Record<string, string> = {
-      "forge-fhevm": this.paths.relHHFhevmForgeSources,
+      "forge-fhevm/": ensureSuffix(this.paths.relHHFhevmForgeSources, "/"),
     };
 
     const d = this.paths.relHHFhevmSources;
     for (let i = 0; i < ZamaDevRemappings.length; ++i) {
-      const rm = path.join(d, ZamaDevRemappings[i]);
-      remappings[ZamaDevRemappings[i]] = rm;
+      const p = ensureSuffix(ZamaDevRemappings[i], "/");
+      const rm = path.join(d, p);
+      remappings[p] = rm;
     }
 
     return remappings;
